@@ -46,9 +46,11 @@ const manager = new THREE.LoadingManager();
 manager.onProgress = (_, f, t) => { const p = Math.round(f / t * 100); $('#pct').textContent = p + '%'; $('#barra').style.width = p + '%'; };
 const loader = new THREE.TextureLoader(manager);
 const cache = {};
-const textura = (c, h) => cache[c + h] ||= loader.loadAsync(`${A}${c}_${h}.webp`).then(t => {
+// falha passageira (4G, servidor): tenta de novo; se não der, esquece o cache para o próximo clique tentar outra vez
+const tentar = (carregar, vezes = 4) => carregar().catch(e => vezes > 1 ? new Promise(r => setTimeout(r, 1200)).then(() => tentar(carregar, vezes - 1)) : Promise.reject(e));
+const textura = (c, h) => cache[c + h] ||= tentar(() => loader.loadAsync(`${A}${c}_${h}.webp`)).then(t => {
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); t.generateMipmaps = true; return t;
-});
+}).catch(e => { delete cache[c + h]; throw e; });
 
 // celular em pé: campo de visão maior, senão a parede enche a tela
 const estado = { comodo: 'sala', h: 'dia', yaw: 0, pitch: 0, fov: innerHeight > innerWidth ? 95 : 75 };

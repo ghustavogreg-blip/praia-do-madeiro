@@ -34,7 +34,9 @@ camera.rotation.order = 'YXZ';
 const manager = new THREE.LoadingManager();
 manager.onProgress = (_, feitos, total) => { const p = Math.round(feitos / total * 100); $('#pct').textContent = p + '%'; $('#barra').style.width = p + '%'; };
 const texLoader = new THREE.TextureLoader(manager);
-const tex = (nome, srgb = true) => texLoader.loadAsync(A + nome).then(t => {
+// rede ruim (4G) ou falha passageira do servidor: tenta de novo antes de desistir, senão o apê fica preso em "Montando"
+const tentar = (carregar, vezes = 4) => carregar().catch(e => vezes > 1 ? new Promise(r => setTimeout(r, 1200)).then(() => tentar(carregar, vezes - 1)) : Promise.reject(e));
+const tex = (nome, srgb = true) => tentar(() => texLoader.loadAsync(A + nome)).then(t => {
   t.flipY = false; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
 });
@@ -42,7 +44,7 @@ const tex = (nome, srgb = true) => texLoader.loadAsync(A + nome).then(t => {
 // panorâmica HDR em RGBE (web_formatos.py)
 const fileLoader = new THREE.FileLoader(manager); fileLoader.setResponseType('json');
 const base64 = t => { const s = atob(t), b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; };
-const hdr = nome => fileLoader.loadAsync(A + nome).then(({ w, h, rgbe }) => {
+const hdr = nome => tentar(() => fileLoader.loadAsync(A + nome)).then(({ w, h, rgbe }) => {
   const b = base64(rgbe), d = new Uint16Array(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = (y * w + x) * 4, o = ((h - 1 - y) * w + x) * 4, f = b[i + 3] ? 2 ** (b[i + 3] - 136) : 0;   // linha 0 embaixo
@@ -56,11 +58,11 @@ const hdr = nome => fileLoader.loadAsync(A + nome).then(({ w, h, rgbe }) => {
 const GRUPOS = ['piso', 'paredes', 'moveis'];
 const [gltf, mascara, ...texs] = await Promise.all([
   // geometria comprimida com Draco (_projeto/comprimir_glb.py): 16 MB -> 2 MB, para abrir no 4G
-  new GLTFLoader(manager).setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/'))
-    .loadAsync(A + 'ape501_draco.glb'),
-  new Promise(res => { const i = new Image(); i.onload = () => res(i); i.src = A + 'anda.png'; }),
+  tentar(() => new GLTFLoader(manager).setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/'))
+    .loadAsync(A + 'ape501_draco.glb')),
+  tentar(() => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A + 'anda.png'; })),
   ...GRUPOS.flatMap(g => [tex(`${g}_cor.webp`), tex(`${g}_luz_dia.webp`), tex(`${g}_luz_tarde.webp`), tex(`${g}_brilho.webp`, false)]),
-  ...['dia', 'tarde'].map(h => texLoader.loadAsync(A + `ceu_${h}.webp`).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; return t; })),
+  ...['dia', 'tarde'].map(h => tentar(() => texLoader.loadAsync(A + `ceu_${h}.webp`)).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; return t; })),
   ...['dia', 'tarde'].map(h => hdr(`ambiente_${h}.json`)),
 ]);
 const N = GRUPOS.length * 4;
