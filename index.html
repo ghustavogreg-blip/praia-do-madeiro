@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Praia do Madeiro · Escolha seu apê">
+  <meta property="og:description" content="Lançamento MRV em Ponta Negra, Natal/RN. Escolha a torre e o andar, veja a planta em 3D e entre no apê.">
+  <meta property="og:image" content="https://ghustavogreg-blip.github.io/praia-do-madeiro/assets/previa.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://ghustavogreg-blip.github.io/praia-do-madeiro/">
+  <meta property="og:locale" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Praia do Madeiro · Escolha seu apê</title>
+  <meta name="description" content="Residencial Praia do Madeiro, lançamento MRV em Ponta Negra, Natal/RN. Escolha a torre, o andar e veja a planta em 3D.">
+  <meta name="theme-color" content="#261434">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+
+  <header class="topo">
+    <a class="marca" href="#inicio" aria-label="Praia do Madeiro">
+      <svg class="marca-ico" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="2" y="2" width="34" height="22" rx="5" fill="#D575B1" transform="rotate(-3 19 13)"/>
+        <rect x="42" y="2" width="20" height="18" rx="5" fill="#6F4091"/>
+        <rect x="4" y="30" width="58" height="32" rx="6" fill="#D575B1" transform="rotate(-3 33 46)"/>
+      </svg>
+      <span><small>Residencial</small>Praia do Madeiro</span>
+    </a>
+    <a class="btn btn-zap btn-sm js-zap" data-msg="Oi, Matheus! Vi o site do Praia do Madeiro e quero mais informações." href="#">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.3Z"/></svg>
+      <span>Falar com o corretor</span>
+    </a>
+  </header>
+
+  <!-- 1. Aérea: rolar aproxima das torres -->
+  <section class="hero" id="inicio">
+    <div class="hero-sticky">
+      <div class="aerea" id="aerea">
+        <img src="assets/img/aerea.jpg" alt="Vista aérea do Residencial Praia do Madeiro" fetchpriority="high">
+        <div class="pinos" id="pinos"></div>
+      </div>
+      <div class="hero-veu"></div>
+      <div class="hero-texto">
+        <span class="selo">Lançamento MRV · Ponta Negra, Natal/RN</span>
+        <h1><span>Escolha o seu apê</span> <em>no Praia do Madeiro</em></h1>
+        <p>Escolha a torre e o andar, veja a planta em 3D e entre em cada cômodo.</p>
+        <div class="hero-acoes">
+          <a class="btn btn-claro" href="#escolha">Escolher meu apê</a>
+          <a class="btn btn-linha" href="#lazer">Ver o lazer</a>
+        </div>
+      </div>
+      <div class="hero-rolar" aria-hidden="true"><span></span>Role para escolher a torre</div>
+    </div>
+  </section>
+
+  <!-- 2. Fachada: escolher andar -->
+  <section class="escolha" id="escolha">
+    <div class="escolha-cab">
+      <div><span class="kicker">Passo 1 de 3</span>
+      <h2>Escolha a torre e o andar</h2></div>
+      <div class="abas" id="abasTorre" role="tablist" aria-label="Torres"></div>
+    </div>
+
+    <div class="escolha-grade">
+      <div class="fachada-box">
+        <div class="fachada" id="fachada"></div>
+        <div class="dica" id="dica" hidden></div>
+        <p class="fachada-nota">As 4 torres são iguais · passe o dedo ou o mouse nos andares</p>
+      </div>
+      <div class="regua" id="regua" aria-label="Andares"></div>
+
+      <aside class="painel" id="painel" aria-live="polite">
+        <div class="painel-vazio">
+          <span class="kicker">Passo 2 de 3</span>
+          <h3>Escolha um andar na fachada</h3>
+          <p>Cada andar tem 8 apartamentos de duas plantas: 2 quartos com suíte ou 2 quartos, todos com varanda.</p>
+          <ul class="legenda">
+            <li><i class="st disponivel"></i>Disponível</li>
+            <li><i class="st reservado"></i>Reservado</li>
+            <li><i class="st vendido"></i>Vendido</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 3. Lazer -->
+  <section class="lazer" id="lazer">
+    <div class="sec-cab">
+      <span class="kicker">Lazer completo</span>
+      <h2>Mais de 14 itens de lazer<br>dentro do condomínio</h2>
+    </div>
+    <div class="lazer-trilho" id="lazerTrilho"></div>
+    <figure class="implantacao">
+      <img src="assets/img/implantacao.jpg" alt="Implantação do condomínio com a área de lazer" loading="lazy">
+      <figcaption>Implantação do condomínio</figcaption>
+    </figure>
+  </section>
+
+  <!-- 4. Localização e condições -->
+  <section class="local" id="local">
+    <div class="local-grade">
+      <div>
+        <span class="kicker">Localização</span>
+        <h2>Ponta Negra, perto de tudo</h2>
+        <p>Fácil acesso às vias que ligam Natal e Parnamirim, com mercados, farmácias, escolas e shoppings na redondeza.</p>
+        <div class="numeros">
+          <div><small>Renda familiar a partir de</small><strong>R$ 7 mil</strong></div>
+          <div><small>Entrada</small><strong>Sinal de ato mínimo</strong></div>
+        </div>
+        <a class="btn btn-zap js-zap" data-msg="Oi, Matheus! Quero fazer uma simulação para o Praia do Madeiro." href="#">Quero fazer minha simulação</a>
+      </div>
+      <figure class="mapa">
+        <img src="assets/img/mapa.jpg" alt="Mapa com o que fica perto do Praia do Madeiro" loading="lazy">
+      </figure>
+    </div>
+  </section>
+
+  <footer class="rodape">
+    <div class="corretor">
+      <strong>Matheus Sodré</strong>
+      <span>Corretor de Imóveis · CRECI RN 9389</span>
+      <a href="https://instagram.com/matheus_imoveis1" target="_blank" rel="noopener">@matheus_imoveis1</a>
+    </div>
+    <p class="legal">Imagens ilustrativas. Fachada, plantas e mobiliário podem variar. Condições sujeitas a análise de crédito e à tabela vigente da MRV.</p>
+  </footer>
+
+  <div class="prototipo" title="Torres, finais, plantas por final e status ainda não vieram do espelho de vendas">Protótipo · unidades ilustrativas</div>
+
+  <!-- 5. Apartamento: planta 3D -->
+  <div class="apto" id="apto" hidden role="dialog" aria-modal="true" aria-labelledby="aptoTitulo">
+    <div class="apto-3d" id="apto3d">
+      <canvas></canvas>
+      <div class="hotspots"></div>
+      <button class="entrar" id="btnTour" hidden><i></i>Entrar no apê</button>
+      <div class="apto-ctrl">
+        <button class="btn-ico" id="btnTopo" title="Ver de cima">Ver de cima</button>
+        <button class="btn-ico" id="btnIso" title="Ver em 3D">Ver em 3D</button>
+      </div>
+      <div class="apto-load" id="aptoLoad">Montando a planta…</div>
+    </div>
+    <div class="apto-info">
+      <button class="fechar" id="aptoFechar" aria-label="Fechar">×</button>
+      <span class="kicker">Passo 3 de 3</span>
+      <h2 id="aptoTitulo">Apto</h2>
+      <p class="apto-onde" id="aptoOnde"></p>
+      <div class="apto-planta" id="aptoPlanta"></div>
+      <button class="tour-card" id="aptoTourCard" hidden>
+        <span><small>Tour pelo apê</small><strong>Entrar e andar por dentro</strong><em id="aptoTourSub">Sala, jantar, cozinha e varanda</em></span>
+      </button>
+      <h4>Toque num cômodo para entrar nele</h4>
+      <div class="comodos" id="aptoComodos"></div>
+      <a class="btn btn-zap btn-full js-zap" id="aptoZap" href="#">Quero esse apê</a>
+      <p class="apto-nota">Unidade e status ilustrativos neste protótipo.</p>
+    </div>
+  </div>
+
+  <!-- Foto do cômodo (ou do lazer) -->
+  <div class="foto" id="foto" hidden role="dialog" aria-modal="true">
+    <img id="fotoImg" alt="" draggable="false">
+    <button class="seta ant" id="fotoAnt" aria-label="Cômodo anterior">‹</button>
+    <button class="seta prox" id="fotoProx" aria-label="Próximo cômodo">›</button>
+    <div class="foto-leg">
+      <strong id="fotoNome"></strong><span>Imagem ilustrativa</span>
+      <div class="foto-chips" id="fotoChips"></div>
+    </div>
+    <button class="voltar" id="fotoVoltar">← Voltar à planta</button>
+    <button class="fechar" id="fotoFechar" aria-label="Fechar">×</button>
+  </div>
+
+  <!-- Tour: andar pelo apartamento -->
+  <div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-label="Tour pelo apartamento">
+    <div class="tour-palco" id="tourPalco">
+      <video id="tourVideo" muted playsinline preload="auto" disablepictureinpicture></video>
+    </div>
+    <button class="voltar" id="tourVoltar">← Voltar à planta</button>
+    <div class="tour-lado">
+      <span class="kicker">Você está em</span>
+      <div class="tour-sala" id="tourSala">Sala</div>
+      <canvas class="tour-mapa" id="tourMapa"></canvas>
+      <div class="tour-chips" id="tourChips"></div>
+    </div>
+    <div class="tour-base">
+      <button class="tour-play" id="tourPlay" aria-label="Andar sozinho"></button>
+      <input type="range" id="tourRange" min="0" max="1000" value="0" aria-label="Posição no tour">
+      <p class="tour-dica">Arraste na tela para andar pelo apê</p>
+    </div>
+  </div>
+
+  <!-- Apê por dentro: passeio em 3D e 360° (pasta ape/) -->
+  <div class="imersivo" id="imersivo" hidden role="dialog" aria-modal="true" aria-label="Apartamento por dentro">
+    <iframe id="imersivoFrame" title="Apartamento por dentro" allow="fullscreen; xr-spatial-tracking"></iframe>
+    <button class="voltar" id="imersivoVoltar">← Voltar<span class="longo"> à planta</span></button>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

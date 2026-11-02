@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+  <meta name="description" content="Ande pelo apê em 3D ou olhe cada cômodo em 360°, de dia e no pôr do sol. Montado a partir da planta oficial.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Apê 2 quartos com suíte · Praia do Madeiro">
+  <meta property="og:description" content="Ande pelo apê em 3D ou olhe cada cômodo em 360°, de dia e no pôr do sol. Montado a partir da planta oficial.">
+  <meta property="og:image" content="https://ghustavogreg-blip.github.io/praia-do-madeiro/ape/assets/previa.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://ghustavogreg-blip.github.io/praia-do-madeiro/ape/">
+  <meta property="og:locale" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apê 501 Praia do Madeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Nunito+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* entrada escura, como as duas experiências: título curto e as duas portas de entrada lado a lado (empilhadas no celular) */
+  :root {
+    --fundo: #1b0e26; --fundo-2: #261434; --texto: #f6f0f9; --apagado: #bcaecb;
+    --rosa: #D575B1; --rosa-2: #F0A6D3; --linha: rgba(255, 255, 255, .14);
+    --f-tit: "Outfit", "Avenir Next", system-ui, sans-serif;
+    --f-txt: "Nunito Sans", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { background: var(--fundo); color: var(--texto); }
+  body { font-family: var(--f-txt); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    background: radial-gradient(90% 60% at 80% 0%, #3a2452 0%, var(--fundo) 60%) var(--fundo); min-height: 100%; }
+  .pagina { max-width: 1080px; margin: 0 auto; padding-block: 40px 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 32px; }
+  .kicker { font: 600 11px var(--f-tit); letter-spacing: .2em; text-transform: uppercase; color: var(--rosa-2); display: flex; align-items: center; gap: 10px; }
+  .kicker::before { content: ""; width: 22px; height: 2px; background: var(--rosa); border-radius: 2px; }
+  h1 { font: 300 clamp(36px, 6vw, 64px)/1.02 var(--f-tit); letter-spacing: -.03em; margin: 12px 0 14px; text-wrap: balance; }
+  h1 b { font-weight: 700; color: var(--rosa-2); }
+  .intro p { margin: 0; max-width: 58ch; color: var(--apagado); }
+  .portas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .porta { display: grid; grid-template-rows: auto 1fr; text-decoration: none; color: inherit; border-radius: 20px; overflow: hidden;
+    background: var(--fundo-2); border: 1px solid var(--linha); transition: transform .25s, border-color .25s; }
+  .porta:hover, .porta:focus-visible { transform: translateY(-3px); border-color: var(--rosa); outline: none; }
+  .porta figure { margin: 0; aspect-ratio: 16 / 10; overflow: hidden; position: relative; background: #000; max-width: 100%; }
+  .porta img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .porta.p360 img { object-position: 30% 50%; animation: girar 40s linear infinite alternate; width: 260%; max-width: none; }
+  @keyframes girar { to { transform: translateX(-61%); } }
+  .selo { position: absolute; left: 14px; top: 14px; font: 600 12px var(--f-tit); letter-spacing: .06em; padding: 6px 11px; border-radius: 999px;
+    background: rgba(27, 14, 38, .72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: var(--texto); }
+  .texto { padding: 18px 20px 20px; display: grid; gap: 6px; align-content: start; }
+  .texto h2 { font: 600 24px/1.15 var(--f-tit); letter-spacing: -.02em; margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .texto h2::after { content: "→"; font-weight: 400; color: var(--rosa-2); transition: transform .25s; }
+  .porta:hover h2::after { transform: translateX(4px); }
+  .texto p { margin: 0; color: var(--apagado); font-size: 15px; }
+  .comodos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .comodos span { font: 600 12px var(--f-tit); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--linha); color: var(--texto); }
+  .nota { font-size: 12.5px; color: var(--apagado); max-width: 80ch; margin: 0; border-top: 1px solid var(--linha); padding-top: 16px; }
+  @media (max-width: 720px) {
+    .pagina { padding-block: 28px 24px; gap: 24px; }
+    .portas { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) { .porta.p360 img { animation: none; } .porta { transition: none; } }
+</style>
+</head>
+<body>
+
+<main class="pagina">
+  <header class="intro">
+    <span class="kicker">Residencial Praia do Madeiro · Ponta Negra, Natal/RN</span>
+    <h1>Entre no apê <b>501</b></h1>
+    <p>Dois quartos com suíte, montado em 3D a partir da planta oficial. Escolha como quer conhecer: andando pelos cômodos ou olhando em volta em 360°, de dia ou no pôr do sol.</p>
+  </header>
+
+  <nav class="portas" aria-label="Escolha a experiência">
+    <a class="porta" href="passeio.html">
+      <figure><img src="assets/capa_passeio.jpg" alt="Cozinha e jantar do apê 501 com a porta de vidro da varanda ao fundo"><span class="selo">Como num jogo</span></figure>
+      <div class="texto">
+        <h2>Andar pelo apê</h2>
+        <p>Caminhe livre pelo apê inteiro: sala, cozinha, varanda, quartos e banheiros. No computador use W A S D ou as setas; no celular, o círculo na tela.</p>
+      </div>
+    </a>
+    <a class="porta p360" href="360.html">
+      <figure><img src="assets/capa_360.jpg" alt="Panorâmica 360° da sala do apê 501"><span class="selo">360°</span></figure>
+      <div class="texto">
+        <h2>Ver em 360°</h2>
+        <p>Imagens em alta de cada cômodo. Arraste para olhar em volta e toque nos pontos para passar de um cômodo ao outro.</p>
+        <div class="comodos"><span>Sala</span><span>Cozinha e jantar</span><span>Varanda</span><span>Quarto</span><span>Suíte</span><span>Banheiros</span></div>
+      </div>
+    </a>
+  </nav>
+
+  <p class="nota"><b>Matheus Sodré · Corretor de Imóveis · CRECI RN 9389.</b> Imagens ilustrativas. Paredes, portas, janelas e medidas seguem a planta oficial do apartamento 501. Móveis e decoração são ilustrativos, como no decorado; os banheiros não têm render oficial. A vista da janela não representa a vista real do prédio.</p>
+</main>
+</body>
+</html>
