@@ -64,17 +64,13 @@ export const PLANTAS = {
 // PROVISÓRIO: qual planta fica em cada final (sai do pavimento tipo do book).
 export const PLANTA_DO_FINAL = { 1: 'A', 2: 'A', 3: 'B', 4: 'B', 5: 'A', 6: 'A', 7: 'B', 8: 'B' };
 
-// PROVISÓRIO: status ilustrativo, sorteado de forma fixa. Quando chegar o espelho, trocar por uma
-// tabela { 'T1-1201': 'vendido', ... } e devolver dela aqui.
+// Vendas: o lançamento é em 05/11/2026, então tudo começa disponível. Conforme o Matheus for vendendo,
+// é só acrescentar a unidade aqui (torre-apto) e publicar de novo. Ex.: 'T1-501': 'vendido', 'T2-1203': 'reservado'.
+export const VENDAS = {
+};
+
 export function statusDa(torre, andar, final) {
-  if (andar === 5 && final === 1) return 'disponivel';   // o 501 é o apê montado em 3D: no protótipo fica sempre aberto
-  let h = (torre * 7919 + andar * 104729 + final * 1299709) >>> 0;
-  h = (h ^ (h >>> 13)) * 1274126177 >>> 0;
-  const r = (h % 1000) / 1000;
-  const vendidoAte = 0.42 - andar * 0.016; // andares baixos vendem antes
-  if (r < vendidoAte) return 'vendido';
-  if (r < vendidoAte + 0.12) return 'reservado';
-  return 'disponivel';
+  return VENDAS[`T${torre}-${andar * 100 + final}`] || 'disponivel';
 }
 
 export const LAZER = [

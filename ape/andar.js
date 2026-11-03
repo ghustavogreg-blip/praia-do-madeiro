@@ -2,10 +2,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 
 const A = 'assets/';
+// o montar_site.py troca por '?v=<data>': quem já visitou não fica com o 3D de uma versão e as texturas de outra
+const VERSAO = '?v=202611031943';
 const $ = s => document.querySelector(s);
-const cena = await fetch(A + 'cena.json').then(r => r.json());
+const cena = await fetch(A + 'cena.json' + VERSAO).then(r => r.json());
 const SC = cena.sc, PW = cena.pw, PH = cena.ph;
 // pixels da planta <-> mundo (glTF: x = x, z = -y do Blender)
 const paraMundo = (px, py) => [(px - PW / 2) * SC, (py - PH / 2) * SC];
@@ -32,6 +35,7 @@ const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 500);
 camera.rotation.order = 'YXZ';
 
 const manager = new THREE.LoadingManager();
+manager.setURLModifier(u => /^(https?:|data:|blob:)/.test(u) ? u : u + VERSAO);
 manager.onProgress = (_, feitos, total) => { const p = Math.round(feitos / total * 100); $('#pct').textContent = p + '%'; $('#barra').style.width = p + '%'; };
 const texLoader = new THREE.TextureLoader(manager);
 // rede ruim (4G) ou falha passageira do servidor: tenta de novo antes de desistir, senão o apê fica preso em "Montando"
@@ -55,12 +59,12 @@ const hdr = nome => tentar(() => fileLoader.loadAsync(A + nome)).then(({ w, h, r
   t.colorSpace = THREE.LinearSRGBColorSpace; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t;
 });
 
-const GRUPOS = ['piso', 'paredes', 'moveis'];
+const GRUPOS = ['piso', 'paredes', 'moveis', 'decor'];   // decor = plantas, vasos e garrafas, com mapa próprio
 const [gltf, mascara, ...texs] = await Promise.all([
   // geometria comprimida com Draco (_projeto/comprimir_glb.py): 16 MB -> 2 MB, para abrir no 4G
   tentar(() => new GLTFLoader(manager).setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/'))
     .loadAsync(A + 'ape501_draco.glb')),
-  tentar(() => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A + 'anda.png'; })),
+  tentar(() => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A + 'anda.png' + VERSAO; })),
   ...GRUPOS.flatMap(g => [tex(`${g}_cor.webp`), tex(`${g}_luz_dia.webp`), tex(`${g}_luz_tarde.webp`), tex(`${g}_brilho.webp`, false)]),
   ...['dia', 'tarde'].map(h => tentar(() => texLoader.loadAsync(A + `ceu_${h}.webp`)).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; return t; })),
   ...['dia', 'tarde'].map(h => hdr(`ambiente_${h}.json`)),
@@ -95,6 +99,20 @@ gltf.scene.traverse(o => {
 });
 scene.add(gltf.scene);
 
+// espelhos dos banheiros: no mapa assado o espelho sai preto (é metal); aqui vira espelho de verdade, desenhado só quando aparece na tela.
+// Mesmas medidas do cena_andar.py (bancada_pia): px da planta ao longo da parede, face na linha "face", de 1,10 a 1,95 m de altura.
+const ESPELHOS = [
+  { de: 238, ate: 300, face: 18.5, parede: 'n' },    // banheiro da suíte: parede norte, olha para o sul
+  { de: 521, ate: 584, face: 141.1, parede: 'o' },   // banheiro social: parede oeste, olha para o leste
+];
+for (const e of ESPELHOS) {
+  const largura = (e.ate - e.de) * SC, meio = (e.de + e.ate) / 2;
+  const espelho = new Reflector(new THREE.PlaneGeometry(largura, 0.85), { clipBias: 0.003, textureWidth: 768, textureHeight: Math.round(768 * 0.85 / largura), color: 0xdfe3e4 });
+  if (e.parede === 'n') { const [x, z] = paraMundo(meio, e.face); espelho.position.set(x, 1.525, z + 0.003); }
+  else { const [x, z] = paraMundo(e.face, meio); espelho.position.set(x + 0.003, 1.525, z); espelho.rotation.y = Math.PI / 2; }
+  scene.add(espelho);
+}
+
 // ---------- máscara de onde dá para andar ----------
 const mc = document.createElement('canvas'); mc.width = PW; mc.height = PH;
 const mctx = mc.getContext('2d', { willReadFrequently: true }); mctx.drawImage(mascara, 0, 0);
@@ -122,7 +140,9 @@ const eu = { x: x0, z: z0, yaw: 0, pitch: -0.04 };   // yaw 0 = olhando para a v
 // link direto para um cômodo (passeio.html#suite): começa lá dentro, olhando para o ponto indicado (px da planta)
 const PARTIDAS = { quarto: [[380, 300], [470, 20]], suite: [[205, 420], [300, 280]], banho_suite: [[205, 130], [90, 40]], banho: [[300, 560], [170, 680]],
                    cozinha: [[700, 470], [840, 250]], varanda: [[700, 175], [700, 90]] };
-const partida = PARTIDAS[location.hash.slice(1)];
+// também aceita um ponto qualquer: passeio.html#x,y,mx,my (px da planta: onde fica e para onde olha)
+const numeros = location.hash.slice(1).split(',').map(Number);
+const partida = PARTIDAS[location.hash.slice(1)] || (numeros.length === 4 && numeros.every(Number.isFinite) ? [numeros.slice(0, 2), numeros.slice(2)] : null);
 if (partida) {
   const [[px, py], [ax, ay]] = partida; [eu.x, eu.z] = paraMundo(px, py);
   const [tx, tz] = paraMundo(ax, ay); eu.yaw = Math.atan2(tx - eu.x, -(tz - eu.z));
@@ -162,7 +182,7 @@ function esconderDica() { if (dicaFora) return; dicaFora = true; setTimeout(() =
 
 // ---------- mapa ----------
 const mapa = $('#mapa'), mg = mapa.getContext('2d');
-const planta = new Image(); planta.src = A + 'planta_501.webp';
+const planta = new Image(); planta.src = A + 'planta_501.webp' + VERSAO;
 function desenharMapa() {
   if (!planta.complete) return;
   const w = mapa.width, h = mapa.height, s = Math.min(w / PW, h / PH), ox = (w - PW * s) / 2, oy = (h - PH * s) / 2;
