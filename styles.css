@@ -111,15 +111,28 @@ h3 { font-size: 26px; }
 .aba[aria-selected="true"] { background: var(--rosa); color: #fff; }
 
 .escolha-grade { display: grid; grid-template-columns: minmax(0, 1fr) 54px minmax(320px, 400px); gap: 20px; align-items: start; }
-.fachada-box { position: relative; border-radius: var(--raio); overflow: hidden; background: #000; }
-.fachada svg { display: block; width: 100%; height: auto; max-height: calc(100vh - var(--topo) - 60px); touch-action: pan-y; }
+/* palco com as 4 torres: proporção fixa da foto, o zoom é no viewBox do SVG */
+.fachada-box { position: relative; border-radius: var(--raio); overflow: hidden; background: #000; aspect-ratio: 1360 / 1680;
+  width: min(100%, calc((100vh - var(--topo) - 60px) * 1360 / 1680)); justify-self: center; }
+.fachada, .fachada svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.fachada svg { touch-action: pan-y; }
+.torre .rotulo { cursor: pointer; transition: opacity .4s; }
+.torre .rotulo rect { fill: rgba(27, 14, 38, .78); stroke: rgba(255, 255, 255, .35); stroke-width: 2; }
+.torre .rotulo text { fill: #fff; font: 600 26px "Outfit", sans-serif; letter-spacing: .04em; pointer-events: none; }
+.torre .rotulo:hover rect, .torre.escolhida .rotulo rect { fill: var(--rosa); stroke: #fff; }
+.fachada-box:not([data-vista="geral"]) .rotulo { opacity: 0; pointer-events: none; }
+.fachada-box[data-vista="andar"] .torre:not(.escolhida) .andar { pointer-events: none; }
+.ver-todas { position: absolute; top: 12px; left: 12px; z-index: 4; border: 1px solid var(--linha); background: rgba(27, 14, 38, .72); color: #fff; border-radius: 999px;
+  padding: 9px 14px; font: 600 13px var(--f-tit); letter-spacing: .03em; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.ver-todas:hover { background: var(--rosa); border-color: var(--rosa); }
+.ver-todas[hidden] { display: none; }
 .fachada image { transition: filter .3s; }
 .fachada svg.foco image { filter: brightness(.62) saturate(.85); }
 .andar { fill: rgba(255, 255, 255, 0); cursor: pointer; transition: fill .15s; }
 .andar.terreo { cursor: default; }
 .andar.hover { fill: rgba(213, 117, 177, .42); }
 .andar.ativo { fill: rgba(213, 117, 177, .62); }
-.andar.hover, .andar.ativo { stroke: rgba(255, 255, 255, .9); stroke-width: 2; }
+.andar.hover, .andar.ativo { stroke: rgba(255, 255, 255, .9); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .fachada-nota { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 28px 16px 14px; text-align: center; font-size: 13px; color: var(--suave); background: linear-gradient(transparent, rgba(0, 0, 0, .6)); pointer-events: none; }
 .dica {
   position: absolute; z-index: 3; pointer-events: none; min-width: 190px;
@@ -247,7 +260,6 @@ h3 { font-size: 26px; }
   .painel { grid-column: 1 / -1; position: static; min-height: 0; }
   .regua button { font-size: 14px; }
   .escolha-grade { gap: 10px; }
-  .fachada svg { max-height: none; }
   .local-grade { grid-template-columns: 1fr; }
   .apto { grid-template-columns: 1fr; grid-template-rows: 56vh auto; overflow-y: auto; }
   .apto-3d { min-height: 56vh; }

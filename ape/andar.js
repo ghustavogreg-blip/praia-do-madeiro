@@ -6,7 +6,7 @@ import { Reflector } from 'three/addons/objects/Reflector.js';
 
 const A = 'assets/';
 // o montar_site.py troca por '?v=<data>': quem já visitou não fica com o 3D de uma versão e as texturas de outra
-const VERSAO = '?v=202611031943';
+const VERSAO = '?v=20261105091154';
 const $ = s => document.querySelector(s);
 const cena = await fetch(A + 'cena.json' + VERSAO).then(r => r.json());
 const SC = cena.sc, PW = cena.pw, PH = cena.ph;
@@ -148,12 +148,12 @@ if (partida) {
   const [tx, tz] = paraMundo(ax, ay); eu.yaw = Math.atan2(tx - eu.x, -(tz - eu.z));
 }
 const teclas = new Set();
-addEventListener('keydown', e => { teclas.add(e.key.toLowerCase()); esconderDica(); });
+addEventListener('keydown', e => { teclas.add(e.key.toLowerCase()); esconderDica(); if (/^(w|a|s|d|arrow)/.test(e.key.toLowerCase())) pararTour(); });
 addEventListener('keyup', e => teclas.delete(e.key.toLowerCase()));
 
 // olhar: arrastar na tela (mouse ou dedo fora do direcional)
 let olhar = null;
-canvas.addEventListener('pointerdown', e => { olhar = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); esconderDica(); });
+canvas.addEventListener('pointerdown', e => { olhar = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); esconderDica(); pararTour(); });
 canvas.addEventListener('pointermove', e => {
   if (!olhar || e.pointerId !== olhar.id) return;
   const k = e.pointerType === 'touch' ? 0.006 : 0.0038;
@@ -166,7 +166,7 @@ canvas.addEventListener('pointerup', soltar); canvas.addEventListener('pointerca
 // direcional (celular)
 const joy = $('#joy'), bola = joy.querySelector('i');
 let dir = { x: 0, y: 0 }, joyId = null;
-joy.addEventListener('pointerdown', e => { joyId = e.pointerId; joy.setPointerCapture(e.pointerId); moverJoy(e); esconderDica(); });
+joy.addEventListener('pointerdown', e => { joyId = e.pointerId; joy.setPointerCapture(e.pointerId); moverJoy(e); esconderDica(); pararTour(); });
 joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) moverJoy(e); });
 const pararJoy = e => { if (e.pointerId !== joyId) return; joyId = null; dir = { x: 0, y: 0 }; bola.style.transform = ''; };
 joy.addEventListener('pointerup', pararJoy); joy.addEventListener('pointercancel', pararJoy);
@@ -175,6 +175,36 @@ function moverJoy(e) {
   let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
   const d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d; }
   dir = { x: dx / R, y: dy / R }; bola.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+
+// ---------- tour automático ----------
+// rota pelo meio dos espaços livres, calculada por _projeto/rota_tour.py: [x, y, olhaX, olhaY, segundos parado] em px da planta
+const TOUR = [[672, 600, 560, 420, 1.2], [571, 507, null, null, 0], [560, 518, 420, 470, 2.2], [736, 468, null, null, 0], [788, 454, null, null, 0], [790, 380, 870, 320, 2.0], [769, 248, null, null, 0], [661, 196, null, null, 0], [659, 188, null, null, 0], [656, 180, null, null, 0], [655, 165, 860, 130, 2.4], [656, 178, null, null, 0], [658, 186, null, null, 0], [671, 211, null, null, 0], [781, 267, null, null, 0], [772, 470, null, null, 0], [520, 475, 368, 362, 0.0], [388, 467, null, null, 0], [385, 269, null, null, 0], [470, 230, 560, 110, 2.2], [375, 286, null, null, 0], [336, 451, null, null, 0], [247, 442, null, null, 0], [242, 431, null, null, 0], [234, 413, 150, 290, 2.2], [86, 401, null, null, 0], [90, 189, null, null, 0], [196, 174, null, null, 0], [199, 111, 275, 40, 1.8], [189, 181, null, null, 0], [83, 195, null, null, 0], [91, 404, null, null, 0], [234, 415, null, null, 0], [240, 427, null, null, 0], [251, 447, null, null, 0], [360, 476, null, null, 0], [336, 546, null, null, 0], [290, 560, 180, 690, 1.8], [428, 496, null, null, 0], [520, 518, 690, 200, 0.0]];
+const tourBtn = $('#tourBtn');
+let tour = null;   // { i: ponto da vez, parado: segundos já parados nele }
+const rumo = (px, py) => { const [x, z] = paraMundo(px, py); return Math.atan2(x - eu.x, -(z - eu.z)); };
+const angulo = a => Math.atan2(Math.sin(a), Math.cos(a));
+function comecarTour() {
+  [eu.x, eu.z] = paraMundo(TOUR[0][0], TOUR[0][1]); eu.yaw = rumo(TOUR[0][2], TOUR[0][3]); eu.pitch = -0.04;
+  tour = { i: 0, parado: 0 }; marcarTour(); esconderDica();
+}
+function pararTour() { if (!tour) return; tour = null; marcarTour(); }
+function marcarTour() { tourBtn.classList.toggle('on', !!tour); tourBtn.querySelector('span').textContent = tour ? 'Parar o tour' : 'Fazer o tour'; }
+tourBtn.addEventListener('click', () => tour ? pararTour() : comecarTour());
+function passoTour(dt) {
+  const [px, py, mx, my, pausa] = TOUR[tour.i];
+  const [tx, tz] = paraMundo(px, py), dx = tx - eu.x, dz = tz - eu.z, d = Math.hypot(dx, dz);
+  let alvo = eu.yaw;
+  if (d > 0.02) {
+    const v = Math.min(d, 0.9 * dt); eu.x += dx / d * v; eu.z += dz / d * v;
+    alvo = mx != null && d < 0.7 ? rumo(mx, my) : Math.atan2(dx, -dz);   // chegando numa parada, já vira para o que ela mostra
+  } else {
+    if (mx != null) alvo = rumo(mx, my);
+    tour.parado += dt;
+    if (tour.parado >= pausa) { tour.i++; tour.parado = 0; if (tour.i >= TOUR.length) pararTour(); }
+  }
+  eu.yaw += angulo(alvo - eu.yaw) * Math.min(1, dt * 2.4);
+  eu.pitch += (-0.04 - eu.pitch) * Math.min(1, dt * 2);
 }
 
 let dicaFora = false;
@@ -213,6 +243,7 @@ function passo(agora) {
   if (teclas.has('arrowleft')) eu.yaw -= 1.8 * dt;
   if (teclas.has('arrowright')) eu.yaw += 1.8 * dt;
   f -= dir.y; l += dir.x;
+  if (tour) passoTour(dt);
   const v = (teclas.has('shift') ? 2.4 : 1.35) * dt;
   if (f || l) {
     const n = Math.hypot(f, l); f /= Math.max(1, n); l /= Math.max(1, n);
@@ -234,3 +265,4 @@ function passo(agora) {
 }
 $('#carregando').classList.add('some');
 requestAnimationFrame(passo);
+if (location.hash === '#tour') comecarTour();   // vindo do botão "Entrar no apê" do site do prédio

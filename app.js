@@ -1,4 +1,4 @@
-import { CORRETOR, TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER } from './data.js';
+import { CORRETOR, TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER } from './data.js?v=20261105091154';
 
 const $ = s => document.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -64,62 +64,106 @@ addEventListener('scroll', rolagem, { passive: true });
 addEventListener('resize', layoutAerea);
 layoutAerea();
 
-// ---------- 2. fachada ----------
+// ---------- 2. as 4 torres (fotomontagem oficial) com zoom na torre e no andar ----------
 const SVGNS = 'http://www.w3.org/2000/svg';
 const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
 const pts = a => a.map(p => p.join(',')).join(' ');
-let svg, faixas = [], botoesRegua = [];
+let svg, quadro4 = null, faixas = {}, botoesRegua = [];   // faixas[torre][andar] = polígono
+const box = $('.fachada-box'), dica = $('#dica');
 
-function resumoAndar(andar) {
+function resumoAndar(andar, torre = estado.torre) {
   let livres = 0;
-  for (let f = 1; f <= FINAIS; f++) if (statusDa(estado.torre, andar, f) === 'disponivel') livres++;
+  for (let f = 1; f <= FINAIS; f++) if (statusDa(torre, andar, f) === 'disponivel') livres++;
   return livres;
 }
 
-async function montarFachada() {
-  const dados = await fetch('assets/fachada.json').then(r => r.json());
-  // Torre recortada da fotomontagem oficial da MRV; as faixas cobrem a face principal
-  svg = svgEl('svg', { viewBox: `0 0 ${dados.w} ${dados.h}`, role: 'img', 'aria-label': 'Torre do Praia do Madeiro com os andares' });
-  const defs = svgEl('defs', {});
-  const clip = svgEl('clipPath', { id: 'clipPredio' });
-  clip.appendChild(svgEl('polygon', { points: pts(dados.silhueta) }));
-  defs.appendChild(clip);
-  svg.appendChild(defs);
-  svg.appendChild(svgEl('image', { href: IMG + 'torre.jpg', width: dados.w, height: dados.h, preserveAspectRatio: 'none' }));
-  const g = svgEl('g', { 'clip-path': 'url(#clipPredio)' });
-  dados.andares.forEach((poly, k) => {
-    const p = svgEl('polygon', { points: pts(poly), class: k === 0 ? 'andar terreo' : 'andar', 'data-andar': k });
-    g.appendChild(p);
-    faixas[k] = p;
+// zoom: anima o viewBox do SVG até uma caixa da foto (mantendo a proporção do quadro)
+let vb = null, animVb = 0;
+function caixaVista([x0, y0, x1, y1], margem = 0.06) {
+  const asp = box.clientWidth / box.clientHeight, W = quadro4.w, H = quadro4.h;
+  let w = (x1 - x0) * (1 + 2 * margem), h = (y1 - y0) * (1 + 2 * margem);
+  if (w / h > asp) h = w / asp; else w = h * asp;
+  if (w > W) { w = W; h = w / asp; } if (h > H) { h = H; w = h * asp; }
+  const x = Math.min(Math.max((x0 + x1) / 2 - w / 2, 0), W - w), y = Math.min(Math.max((y0 + y1) / 2 - h / 2, 0), H - h);
+  return [x, y, w, h];
+}
+function irPara(caixa, dur = 950, margem) {
+  const ini = vb.slice(), fim = caixaVista(caixa, margem), t0 = performance.now();
+  cancelAnimationFrame(animVb);
+  return new Promise(res => {
+    const passo = agora => {
+      const t = Math.min(1, (agora - t0) / dur), e = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+      vb = ini.map((v, i) => v + (fim[i] - v) * e); svg.setAttribute('viewBox', vb.join(' '));
+      if (t < 1) animVb = requestAnimationFrame(passo); else res();
+    };
+    animVb = requestAnimationFrame(passo);
   });
-  svg.appendChild(g);
-  $('#fachada').appendChild(svg);
+}
+const torreDe = id => quadro4.torres.find(t => t.id === id);
+const caixaAndar = (t, k) => {   // o andar com uns andares de contexto acima e abaixo
+  const p = t.andares[k], xs = p.map(q => q[0]), ys = p.map(q => q[1]), h = Math.max(...ys) - Math.min(...ys);
+  return [Math.min(...xs) - 30, Math.min(...ys) - h * 3.2, Math.max(...xs) + 30, Math.max(...ys) + h * 3.2];
+};
+let vista = 'geral';   // geral | torre | andar
+function marcarPalco(v) { vista = v; box.dataset.vista = v; $('#verTodas').hidden = v === 'geral'; }
 
-  const dica = $('#dica'), box = $('.fachada-box');
-  g.addEventListener('pointermove', ev => {
-    const k = +ev.target.dataset.andar;
-    if (!k) { realcar(null); dica.hidden = true; return; }
-    realcar(k);
+async function montarFachada() {
+  quadro4 = await fetch('assets/torres.json').then(r => r.json());
+  svg = svgEl('svg', { viewBox: `0 0 ${quadro4.w} ${quadro4.h}`, preserveAspectRatio: 'xMidYMid slice', role: 'img', 'aria-label': 'As 4 torres do Praia do Madeiro com os andares' });
+  vb = [0, 0, quadro4.w, quadro4.h];
+  const defs = svgEl('defs', {}); svg.appendChild(defs);
+  svg.appendChild(svgEl('image', { href: IMG + 'torres.jpg', width: quadro4.w, height: quadro4.h }));
+  // torres do fundo primeiro; a parte que fica atrás da torre da frente é cortada por uma máscara
+  for (const t of [...quadro4.torres].sort((a, b) => !!b.coberta_por - !!a.coberta_por)) {
+    const g = svgEl('g', { class: 'torre', 'data-torre': t.id });
+    if (t.coberta_por) {
+      const m = svgEl('mask', { id: `atras${t.id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: quadro4.w, height: quadro4.h });
+      m.appendChild(svgEl('rect', { width: quadro4.w, height: quadro4.h, fill: '#fff' }));
+      m.appendChild(svgEl('polygon', { points: pts(t.coberta_por), fill: '#000' }));
+      defs.appendChild(m); g.setAttribute('mask', `url(#atras${t.id})`);
+    }
+    faixas[t.id] = [];
+    t.andares.forEach((poly, k) => {
+      const p = svgEl('polygon', { points: pts(poly), class: k === 0 ? 'andar terreo' : 'andar', 'data-andar': k, 'data-torre': t.id });
+      g.appendChild(p); faixas[t.id][k] = p;
+    });
+    // nome da torre em cima do telhado (só na vista geral)
+    const [cx, topo] = [(t.face[0][0] + t.face[1][0]) / 2, Math.min(t.face[0][1], t.face[1][1])];
+    const rot = svgEl('g', { class: 'rotulo', transform: `translate(${cx} ${topo - 120})`, 'data-torre': t.id });
+    rot.appendChild(svgEl('rect', { x: -62, y: -24, width: 124, height: 48, rx: 24 }));
+    const tx = svgEl('text', { 'text-anchor': 'middle', y: 9 }); tx.textContent = `Torre ${t.id}`; rot.appendChild(tx);
+    g.appendChild(rot);
+    svg.appendChild(g);
+  }
+  $('#fachada').appendChild(svg);
+  marcarPalco('geral');
+
+  svg.addEventListener('pointermove', ev => {
+    const k = +ev.target.dataset.andar, t = +ev.target.dataset.torre;
+    if (!k || !t) { realcar(null); dica.hidden = true; return; }
+    realcar(t, k);
     if (ev.pointerType === 'mouse') {
       const r = box.getBoundingClientRect();
-      const livres = resumoAndar(k);
-      dica.innerHTML = `<strong>${k}º andar</strong><span>Torre ${estado.torre} · <em>${livres} de ${FINAIS}</em> disponíveis</span><span>Clique para ver os apartamentos</span>`;
+      dica.innerHTML = `<strong>${k}º andar</strong><span>Torre ${t} · <em>${resumoAndar(k, t)} de ${FINAIS}</em> disponíveis</span><span>Clique para ver os apartamentos</span>`;
       dica.hidden = false;
-      const x = ev.clientX - r.left, y = ev.clientY - r.top;
-      dica.style.left = `${Math.min(x, r.width - 230)}px`;
-      dica.style.top = `${y}px`;
+      dica.style.left = `${Math.min(ev.clientX - r.left, r.width - 230)}px`; dica.style.top = `${ev.clientY - r.top}px`;
     }
   });
-  g.addEventListener('pointerleave', () => { realcar(null); dica.hidden = true; });
-  g.addEventListener('click', ev => { const k = +ev.target.dataset.andar; if (k) escolherAndar(k, true); });
+  svg.addEventListener('pointerleave', () => { realcar(null); dica.hidden = true; });
+  svg.addEventListener('click', ev => {
+    const k = +ev.target.dataset.andar, t = +ev.target.dataset.torre || +ev.target.closest('.rotulo')?.dataset.torre;
+    if (k && t) { if (t !== estado.torre) escolherTorre(t, false); escolherAndar(k, true); }
+    else if (t) escolherTorre(t);
+  });
+  $('#verTodas').addEventListener('click', () => verTodas());
 
-  // régua de andares (mais fácil de tocar no celular), com a altura da fachada
+  // régua de andares (mais fácil de tocar no celular), da torre escolhida
   const regua = $('#regua');
   new ResizeObserver(() => { regua.style.height = `${box.offsetHeight}px`; }).observe(box);
   for (let k = ANDARES; k >= 1; k--) {
     const b = el('button', '', String(k));
     b.title = `${k}º andar`;
-    b.addEventListener('mouseenter', () => realcar(k));
+    b.addEventListener('mouseenter', () => realcar(estado.torre, k));
     b.addEventListener('mouseleave', () => realcar(null));
     b.addEventListener('click', () => escolherAndar(k, true));
     regua.appendChild(b);
@@ -127,10 +171,10 @@ async function montarFachada() {
   }
 }
 
-function realcar(k) {
-  faixas.forEach((p, i) => p.classList.toggle('hover', i === k));
-  botoesRegua.forEach((b, i) => b && b.classList.toggle('hover', i === k));
-  svg.classList.toggle('foco', k != null || estado.andar != null);
+function realcar(t, k) {
+  for (const [id, lista] of Object.entries(faixas)) lista.forEach((p, i) => p.classList.toggle('hover', +id === t && i === k));
+  botoesRegua.forEach((b, i) => b && b.classList.toggle('hover', t === estado.torre && i === k));
+  svg.classList.toggle('foco', t != null || estado.andar != null);
 }
 
 // abas das torres
@@ -141,19 +185,33 @@ TORRES.forEach(t => {
   b.addEventListener('click', () => escolherTorre(t.id));
   abas.appendChild(b);
 });
-function escolherTorre(id) {
-  estado.torre = id;
+function escolherTorre(id, voar = true) {
+  estado.torre = id; estado.andar = null;
   [...abas.children].forEach((b, i) => b.setAttribute('aria-selected', String(i + 1 === id)));
-  if (estado.andar) mostrarPainel();
+  svg?.querySelectorAll('.torre').forEach(g => g.classList.toggle('escolhida', +g.dataset.torre === id));
+  Object.values(faixas).flat().forEach(p => p.classList.remove('ativo'));
+  botoesRegua.forEach(b => b && b.classList.remove('ativo'));
+  if (voar && quadro4) { marcarPalco('torre'); irPara(torreDe(id).caixa, 950, 0.1); }
+  painelVazio();
 }
+function verTodas() {
+  estado.andar = null; marcarPalco('geral');
+  Object.values(faixas).flat().forEach(p => p.classList.remove('ativo'));
+  botoesRegua.forEach(b => b && b.classList.remove('ativo'));
+  svg.classList.remove('foco'); irPara([0, 0, quadro4.w, quadro4.h], 900, 0);
+  painelVazio();
+}
+const vazio = $('#painel').innerHTML;
+function painelVazio() { $('#painel').innerHTML = vazio; }
 
 function escolherAndar(k, rolarPainel) {
   estado.andar = k;
-  faixas.forEach((p, i) => p.classList.toggle('ativo', i === k));
+  for (const [id, lista] of Object.entries(faixas)) lista.forEach((p, i) => p.classList.toggle('ativo', +id === estado.torre && i === k));
   botoesRegua.forEach((b, i) => b && b.classList.toggle('ativo', i === k));
   svg.classList.add('foco');
+  marcarPalco('andar'); irPara(caixaAndar(torreDe(estado.torre), k), 1000, 0);
   mostrarPainel();
-  if (rolarPainel && innerWidth <= 980) $('#painel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (rolarPainel && innerWidth <= 980) setTimeout(() => $('#painel').scrollIntoView({ behavior: 'smooth', block: 'start' }), 650);
 }
 
 function mostrarPainel() {
@@ -171,7 +229,11 @@ function mostrarPainel() {
     const num = andar * 100 + f;
     const b = el('button', `uni ${st}`, `<i class="st ${st}"></i><strong>${num}</strong><span>${pl.titulo}</span><small>${NOME_STATUS[st]}</small>`);
     if (st === 'vendido') b.disabled = true;
-    else b.addEventListener('click', () => abrirApto({ torre, andar, final: f, num, st }));
+    else b.addEventListener('click', ev => {
+      // "entra" no prédio: a foto aproxima mais o andar e o apê abre de dentro para fora a partir do toque
+      if (quadro4) { const p = torreDe(torre).andares[andar], xs = p.map(q => q[0]), ys = p.map(q => q[1]); irPara([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], 700, 0.02); }
+      abrirApto({ torre, andar, final: f, num, st }, false, ev);
+    });
     grade.appendChild(b);
   }
   box.appendChild(grade);
@@ -195,7 +257,26 @@ function salasDa(pl) {
   return out;
 }
 
-async function abrirApto(u, doHistorico = false) {
+// abre um quadro de dentro para fora, a partir do ponto tocado (sensação de entrar, sem trocar de página)
+function portal(elm, ev) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const x = ev?.clientX ?? innerWidth / 2, y = ev?.clientY ?? innerHeight / 2, r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  elm.animate([{ clipPath: `circle(0px at ${x}px ${y}px)` }, { clipPath: `circle(${r}px at ${x}px ${y}px)` }], { duration: 800, easing: 'cubic-bezier(.65, 0, .25, 1)' });
+}
+
+// passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
+const VERSAO_APE = '?v=20261105091154';
+let preBaixado = false;
+function preBaixarApe(pl) {
+  if (!pl.ape || preBaixado || navigator.connection?.saveData) return;
+  preBaixado = true;
+  const arqs = ['ape501_draco.glb', 'cena.json', 'anda.png', 'planta_501.webp', 'ambiente_dia.json', 'ambiente_tarde.json', 'ceu_dia.webp', 'ceu_tarde.webp',
+    ...['piso', 'paredes', 'moveis', 'decor'].flatMap(g => ['cor', 'brilho', 'luz_dia', 'luz_tarde'].map(t => `${g}_${t}.webp`))];
+  const baixar = () => arqs.forEach(a => fetch(`${pl.ape.pasta}assets/${a}${VERSAO_APE}`, { priority: 'low' }).catch(() => {}));
+  setTimeout(() => (window.requestIdleCallback || setTimeout)(baixar), 1500);   // depois que a planta 3D já abriu
+}
+
+async function abrirApto(u, doHistorico = false, origem = null) {
   const pl = PLANTAS[PLANTA_DO_FINAL[u.final]];
   plantaAtual = pl;
   $('#aptoTitulo').textContent = `Apto ${u.num}`;
@@ -213,11 +294,13 @@ async function abrirApto(u, doHistorico = false) {
   ligarZap($('#aptoZap'), `Oi, Matheus! Vi no site o apto ${u.num} da Torre ${u.torre} do Praia do Madeiro (${pl.titulo}). Quero saber valores e condições.`);
 
   apto.hidden = false;
+  portal(apto, origem);
+  preBaixarApe(pl);
   document.body.style.overflow = 'hidden';
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js');
+    const { Planta3D } = await import('./planta3d.js?v=20261105091154');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);
@@ -313,7 +396,7 @@ async function abrirTour() {
     ocupado = true;
     if (innerWidth <= 980) $('#apto').scrollTo({ top: 0, behavior: 'smooth' });
     await planta3d.mergulhar(plantaAtual.ape.entrada, plantaAtual.ape.mira);
-    abrirImersivo('passeio.html');
+    abrirImersivo('passeio.html', 'tour');   // entra já andando sozinho (tour automático); tocar na tela assume o controle
     ocupado = false;
     return;
   }
@@ -430,6 +513,7 @@ function abrirImersivo(pagina, comodo) {
   const u = aptoAtual;
   quadro.src = `${plantaAtual.ape.pasta}${pagina}?apto=${u.num}${comodo ? '#' + comodo : ''}`;
   imersivo.hidden = false;
+  portal(imersivo, null);
   quadro.addEventListener('load', () => quadro.contentWindow?.focus(), { once: true });   // teclado (W A S D) vai para o passeio
   history.pushState({ apto: u, imersivo: true }, '', location.hash);
 }
@@ -462,5 +546,4 @@ LAZER.forEach(l => {
   trilho.appendChild(b);
 });
 
-escolherTorre(1);
-montarFachada();
+montarFachada().then(() => escolherTorre(1, false));

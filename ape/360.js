@@ -43,7 +43,7 @@ esfera.rotation.y = -Math.PI / 2;
 scene.add(esfera);
 
 const manager = new THREE.LoadingManager();
-const VERSAO = '?v=202611031943';   // o montar_site.py troca por '?v=<data>' (evita imagem velha do cache depois de republicar)
+const VERSAO = '?v=20261105091154';   // o montar_site.py troca por '?v=<data>' (evita imagem velha do cache depois de republicar)
 manager.setURLModifier(u => /^(https?:|data:|blob:)/.test(u) ? u : u + VERSAO);
 manager.onProgress = (_, f, t) => { const p = Math.round(f / t * 100); $('#pct').textContent = p + '%'; $('#barra').style.width = p + '%'; };
 const loader = new THREE.TextureLoader(manager);

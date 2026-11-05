@@ -73,3 +73,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--roxo-e
 .embutido .marca { display: none; }
 .embutido .topo { justify-content: flex-end; }
 @media (max-width: 440px) { .marca > div { display: none; } }   /* celular em pé: só o símbolo, o título não cabe ao lado dos botões */
+
+/* tour automático: botão no centro de baixo */
+.tour-btn { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 10px; border: 0; cursor: pointer;
+  padding: 11px 20px 11px 12px; border-radius: 999px; background: var(--rosa); color: #fff; font: 600 15px var(--f); box-shadow: 0 10px 28px -6px rgba(213, 117, 177, .75); z-index: 3; }
+.tour-btn i { width: 24px; height: 24px; border-radius: 50%; background: #fff; position: relative; flex: none; }
+.tour-btn i::after { content: ""; position: absolute; left: 9px; top: 6px; border-left: 9px solid var(--rosa); border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+.tour-btn.on { background: rgba(30, 14, 42, .7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: none; border: 1px solid var(--linha); }
+.tour-btn.on i::after { left: 7px; top: 7px; width: 10px; height: 10px; border: 0; background: var(--roxo-esc); border-radius: 2px; }
+.tour-btn:hover { filter: brightness(1.06); }
+@media (hover: none), (max-width: 700px) { .tour-btn { left: 16px; transform: none; bottom: 24px; padding: 10px 16px 10px 10px; font-size: 14px; } }   /* embaixo do direcional, sem bater no nome do cômodo */
