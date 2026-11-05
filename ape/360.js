@@ -3,28 +3,16 @@ import * as THREE from 'three';
 
 const A = 'assets/360/';
 const $ = s => document.querySelector(s);
-const SC = 0.0095, PW = 916, PH = 748;   // escala e tamanho da planta do 501 (casa501.py)
-// posição de cada vista em pixels da planta (iguais a PONTOS_360 no cena_andar.py);
-// frente = ponto da planta para onde a vista abre pela miniatura (igual ao miniaturas360.py); sem frente, abre para o norte
-const COMODOS = [
-  { id: 'sala', nome: 'Sala', px: [470, 500] },
-  { id: 'cozinha', nome: 'Cozinha e jantar', px: [765, 330] },
-  { id: 'varanda', nome: 'Varanda', px: [733, 172] },
-  { id: 'quarto', nome: 'Quarto', px: [482, 240], frente: [455, 17] },
-  { id: 'suite', nome: 'Suíte', px: [200, 412], frente: [300, 300] },
-  { id: 'banho_suite', nome: 'Banheiro da suíte', px: [200, 112], frente: [17, 80] },
-  { id: 'banho', nome: 'Banheiro', px: [262, 590], frente: [140, 640] },
-];
+// o que muda de um apê para outro (501 / 503) vem do assets/apto.json: escala da planta, cômodos e ligações
+const VERSAO = '?v=20261105105912';   // o montar_site.py troca por '?v=<data>' (evita imagem velha do cache depois de republicar)
+const apto = await fetch('assets/apto.json' + VERSAO).then(r => r.json());
+const SC = apto.sc, PW = apto.pw, PH = apto.ph;
+// posição de cada vista em px da planta (= PONTOS_360 do apto_<n>.py); frente = para onde a vista abre pela miniatura
+const COMODOS = apto.c360;
 // pontos no chão só para os cômodos que dá para ver dali; com porta, o ponto fica na porta (px da planta)
-const LIGA = {
-  sala: { cozinha: null, quarto: [368, 362], suite: [322, 452], banho: [322, 554] },
-  cozinha: { sala: null, varanda: null },
-  varanda: { cozinha: null },
-  quarto: { sala: [368, 352] },
-  suite: { sala: [312, 452], banho_suite: [208, 149] },
-  banho_suite: { suite: [208, 149] },
-  banho: { sala: [316, 554] },
-};
+const LIGA = apto.liga;
+document.querySelector('.marca strong').firstChild.textContent = apto.titulo;
+const semRender = document.querySelector('#semRender'); if (semRender) semRender.textContent = apto.sem_render;
 const yawPara = (de, para) => { const d = mundo(para).sub(mundo(de)); return -Math.atan2(d.x, -d.z); };   // rotation.y positivo gira para a esquerda
 const mundo = ([px, py]) => new THREE.Vector3((px - PW / 2) * SC, 0, (py - PH / 2) * SC);
 
@@ -43,7 +31,6 @@ esfera.rotation.y = -Math.PI / 2;
 scene.add(esfera);
 
 const manager = new THREE.LoadingManager();
-const VERSAO = '?v=20261105091154';   // o montar_site.py troca por '?v=<data>' (evita imagem velha do cache depois de republicar)
 manager.setURLModifier(u => /^(https?:|data:|blob:)/.test(u) ? u : u + VERSAO);
 manager.onProgress = (_, f, t) => { const p = Math.round(f / t * 100); $('#pct').textContent = p + '%'; $('#barra').style.width = p + '%'; };
 const loader = new THREE.TextureLoader(manager);

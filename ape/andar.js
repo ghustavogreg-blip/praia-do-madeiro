@@ -1,4 +1,4 @@
-// Andar dentro do 501: geometria e luz assadas no Blender (_projeto/cena_andar.py + pos.py).
+// Andar dentro do apê (501 ou 503, conforme assets/apto.json): geometria e luz assadas no Blender (_projeto/cena_andar.py + pos.py).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
@@ -6,9 +6,13 @@ import { Reflector } from 'three/addons/objects/Reflector.js';
 
 const A = 'assets/';
 // o montar_site.py troca por '?v=<data>': quem já visitou não fica com o 3D de uma versão e as texturas de outra
-const VERSAO = '?v=20261105091154';
+const VERSAO = '?v=20261105105912';
 const $ = s => document.querySelector(s);
 const cena = await fetch(A + 'cena.json' + VERSAO).then(r => r.json());
+// o que muda de um apê para outro (501 / 503): cômodos, espelhos, tour, links diretos, arquivos
+const apto = await fetch(A + 'apto.json' + VERSAO).then(r => r.json());
+document.querySelector('.marca strong').textContent = apto.titulo;
+const semRender = document.querySelector('#semRender'); if (semRender) semRender.textContent = apto.sem_render;
 const SC = cena.sc, PW = cena.pw, PH = cena.ph;
 // pixels da planta <-> mundo (glTF: x = x, z = -y do Blender)
 const paraMundo = (px, py) => [(px - PW / 2) * SC, (py - PH / 2) * SC];
@@ -17,12 +21,7 @@ const paraPlanta = (x, z) => [x / SC + PW / 2, z / SC + PH / 2];
 const EXPOSICAO = { dia: 1.2, tarde: 0.55 };
 // o ambiente do pôr do sol sai ~10x mais claro que o do dia (luzes acesas): reflexo equilibrado com o mapa assado
 const REFLEXO = { dia: 1, tarde: 0.15 };
-const COMODOS = [   // retângulos em pixels da planta, o primeiro que contém a posição ganha; [artigo, nome, ...]
-  ['no', 'Banheiro da suíte', 17, 17, 310, 149], ['na', 'Suíte', 17, 149, 312, 500], ['no', 'Quarto', 318, 17, 600, 356],
-  ['no', 'Banheiro', 140, 505, 313, 730],
-  ['na', 'Varanda', 597, 70, 900, 192], ['na', 'Cozinha', 738, 196, 900, 497], ['na', 'Área de serviço', 733, 497, 900, 650],
-  ['na', 'Sala de jantar', 600, 196, 738, 440], ['na', 'Sala', 300, 196, 900, 660],
-];
+const COMODOS = apto.comodos;   // retângulos em pixels da planta, o primeiro que contém a posição ganha; [artigo, nome, ...]
 
 // ---------- renderizador ----------
 const canvas = $('#cena');
@@ -63,7 +62,7 @@ const GRUPOS = ['piso', 'paredes', 'moveis', 'decor'];   // decor = plantas, vas
 const [gltf, mascara, ...texs] = await Promise.all([
   // geometria comprimida com Draco (_projeto/comprimir_glb.py): 16 MB -> 2 MB, para abrir no 4G
   tentar(() => new GLTFLoader(manager).setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/'))
-    .loadAsync(A + 'ape501_draco.glb')),
+    .loadAsync(A + apto.glb)),
   tentar(() => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A + 'anda.png' + VERSAO; })),
   ...GRUPOS.flatMap(g => [tex(`${g}_cor.webp`), tex(`${g}_luz_dia.webp`), tex(`${g}_luz_tarde.webp`), tex(`${g}_brilho.webp`, false)]),
   ...['dia', 'tarde'].map(h => tentar(() => texLoader.loadAsync(A + `ceu_${h}.webp`)).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; return t; })),
@@ -101,15 +100,14 @@ scene.add(gltf.scene);
 
 // espelhos dos banheiros: no mapa assado o espelho sai preto (é metal); aqui vira espelho de verdade, desenhado só quando aparece na tela.
 // Mesmas medidas do cena_andar.py (bancada_pia): px da planta ao longo da parede, face na linha "face", de 1,10 a 1,95 m de altura.
-const ESPELHOS = [
-  { de: 238, ate: 300, face: 18.5, parede: 'n' },    // banheiro da suíte: parede norte, olha para o sul
-  { de: 521, ate: 584, face: 141.1, parede: 'o' },   // banheiro social: parede oeste, olha para o leste
-];
-for (const e of ESPELHOS) {
-  const largura = (e.ate - e.de) * SC, meio = (e.de + e.ate) / 2;
-  const espelho = new Reflector(new THREE.PlaneGeometry(largura, 0.85), { clipBias: 0.003, textureWidth: 768, textureHeight: Math.round(768 * 0.85 / largura), color: 0xdfe3e4 });
-  if (e.parede === 'n') { const [x, z] = paraMundo(meio, e.face); espelho.position.set(x, 1.525, z + 0.003); }
-  else { const [x, z] = paraMundo(e.face, meio); espelho.position.set(x + 0.003, 1.525, z); espelho.rotation.y = Math.PI / 2; }
+const ESPELHOS = apto.espelhos;
+for (const e of ESPELHOS) {   // parede: n (olha para o sul), s (para o norte), o (para o leste); z0/z1 = altura (padrão 1,10–1,95 m)
+  const largura = (e.ate - e.de) * SC, meio = (e.de + e.ate) / 2, z0 = e.z0 ?? 1.10, z1 = e.z1 ?? 1.95, alto = z1 - z0;
+  const espelho = new Reflector(new THREE.PlaneGeometry(largura, alto), { clipBias: 0.003, textureWidth: 768, textureHeight: Math.round(768 * alto / largura), color: 0xdfe3e4 });
+  const y = (z0 + z1) / 2;
+  if (e.parede === 'n') { const [x, z] = paraMundo(meio, e.face); espelho.position.set(x, y, z + 0.003); }
+  else if (e.parede === 's') { const [x, z] = paraMundo(meio, e.face); espelho.position.set(x, y, z - 0.003); espelho.rotation.y = Math.PI; }
+  else { const [x, z] = paraMundo(e.face, meio); espelho.position.set(x + 0.003, y, z); espelho.rotation.y = Math.PI / 2; }
   scene.add(espelho);
 }
 
@@ -138,8 +136,7 @@ horario('dia');
 const [x0, z0] = paraMundo(...cena.inicio);
 const eu = { x: x0, z: z0, yaw: 0, pitch: -0.04 };   // yaw 0 = olhando para a varanda (norte)
 // link direto para um cômodo (passeio.html#suite): começa lá dentro, olhando para o ponto indicado (px da planta)
-const PARTIDAS = { quarto: [[380, 300], [470, 20]], suite: [[205, 420], [300, 280]], banho_suite: [[205, 130], [90, 40]], banho: [[300, 560], [170, 680]],
-                   cozinha: [[700, 470], [840, 250]], varanda: [[700, 175], [700, 90]] };
+const PARTIDAS = apto.partidas;
 // também aceita um ponto qualquer: passeio.html#x,y,mx,my (px da planta: onde fica e para onde olha)
 const numeros = location.hash.slice(1).split(',').map(Number);
 const partida = PARTIDAS[location.hash.slice(1)] || (numeros.length === 4 && numeros.every(Number.isFinite) ? [numeros.slice(0, 2), numeros.slice(2)] : null);
@@ -179,7 +176,7 @@ function moverJoy(e) {
 
 // ---------- tour automático ----------
 // rota pelo meio dos espaços livres, calculada por _projeto/rota_tour.py: [x, y, olhaX, olhaY, segundos parado] em px da planta
-const TOUR = [[672, 600, 560, 420, 1.2], [571, 507, null, null, 0], [560, 518, 420, 470, 2.2], [736, 468, null, null, 0], [788, 454, null, null, 0], [790, 380, 870, 320, 2.0], [769, 248, null, null, 0], [661, 196, null, null, 0], [659, 188, null, null, 0], [656, 180, null, null, 0], [655, 165, 860, 130, 2.4], [656, 178, null, null, 0], [658, 186, null, null, 0], [671, 211, null, null, 0], [781, 267, null, null, 0], [772, 470, null, null, 0], [520, 475, 368, 362, 0.0], [388, 467, null, null, 0], [385, 269, null, null, 0], [470, 230, 560, 110, 2.2], [375, 286, null, null, 0], [336, 451, null, null, 0], [247, 442, null, null, 0], [242, 431, null, null, 0], [234, 413, 150, 290, 2.2], [86, 401, null, null, 0], [90, 189, null, null, 0], [196, 174, null, null, 0], [199, 111, 275, 40, 1.8], [189, 181, null, null, 0], [83, 195, null, null, 0], [91, 404, null, null, 0], [234, 415, null, null, 0], [240, 427, null, null, 0], [251, 447, null, null, 0], [360, 476, null, null, 0], [336, 546, null, null, 0], [290, 560, 180, 690, 1.8], [428, 496, null, null, 0], [520, 518, 690, 200, 0.0]];
+const TOUR = apto.tour;
 const tourBtn = $('#tourBtn');
 let tour = null;   // { i: ponto da vez, parado: segundos já parados nele }
 const rumo = (px, py) => { const [x, z] = paraMundo(px, py); return Math.atan2(x - eu.x, -(z - eu.z)); };
@@ -212,7 +209,7 @@ function esconderDica() { if (dicaFora) return; dicaFora = true; setTimeout(() =
 
 // ---------- mapa ----------
 const mapa = $('#mapa'), mg = mapa.getContext('2d');
-const planta = new Image(); planta.src = A + 'planta_501.webp' + VERSAO;
+const planta = new Image(); planta.src = A + apto.planta + VERSAO;
 function desenharMapa() {
   if (!planta.complete) return;
   const w = mapa.width, h = mapa.height, s = Math.min(w / PW, h / PH), ox = (w - PW * s) / 2, oy = (h - PH * s) / 2;

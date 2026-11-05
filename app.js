@@ -1,4 +1,5 @@
-import { CORRETOR, TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER } from './data.js?v=20261105091154';
+import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe } from './data.js?v=20261105105912';
+const nomeAndar = k => k ? `${k}º andar` : 'Térreo';
 
 const $ = s => document.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -7,13 +8,22 @@ const IMG = 'assets/img/';
 
 const estado = { torre: 1, andar: null };
 
-// ---------- WhatsApp ----------
-function linkZap(msg) {
-  const t = encodeURIComponent(msg);
-  return CORRETOR.whatsapp ? `https://wa.me/${CORRETOR.whatsapp}?text=${t}` : `https://wa.me/?text=${t}`;
+// ---------- modo apresentação: o Matheus mostra no celular, tablet ou notebook ao lado do cliente ----------
+const telaCheia = $('#telaCheia');
+const marcarTela = () => { telaCheia.textContent = document.fullscreenElement ? 'Sair da tela cheia' : 'Tela cheia'; };
+telaCheia.addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {}));
+document.addEventListener('fullscreenchange', marcarTela);
+if (!document.documentElement.requestFullscreen) telaCheia.hidden = true;   // iPhone não tem tela cheia de página
+
+// sem internet no estande: o site fica guardado no aparelho (sw.js); avisa uma vez quando terminou de guardar
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.addEventListener('message', ev => {
+    if (!ev.data?.offline) return;
+    const aviso = el('div', 'aviso-offline', 'Pronto: o site já funciona sem internet neste aparelho');
+    document.body.appendChild(aviso); setTimeout(() => aviso.classList.add('some'), 4500); setTimeout(() => aviso.remove(), 5200);
+  });
 }
-function ligarZap(a, msg) { a.href = linkZap(msg || a.dataset.msg); a.target = '_blank'; a.rel = 'noopener'; }
-document.querySelectorAll('.js-zap').forEach(a => ligarZap(a));
 
 // ---------- 1. aérea com zoom na rolagem ----------
 const AW = 2400, AH = 1190, FOCO = [1390, 495];
@@ -144,7 +154,7 @@ async function montarFachada() {
     realcar(t, k);
     if (ev.pointerType === 'mouse') {
       const r = box.getBoundingClientRect();
-      dica.innerHTML = `<strong>${k}º andar</strong><span>Torre ${t} · <em>${resumoAndar(k, t)} de ${FINAIS}</em> disponíveis</span><span>Clique para ver os apartamentos</span>`;
+      dica.innerHTML = `<strong>${nomeAndar(k)}</strong><span>Torre ${t} · <em>${resumoAndar(k, t)} de ${FINAIS}</em> disponíveis</span><span>Clique para ver os apartamentos</span>`;
       dica.hidden = false;
       dica.style.left = `${Math.min(ev.clientX - r.left, r.width - 230)}px`; dica.style.top = `${ev.clientY - r.top}px`;
     }
@@ -160,9 +170,9 @@ async function montarFachada() {
   // régua de andares (mais fácil de tocar no celular), da torre escolhida
   const regua = $('#regua');
   new ResizeObserver(() => { regua.style.height = `${box.offsetHeight}px`; }).observe(box);
-  for (let k = ANDARES; k >= 1; k--) {
-    const b = el('button', '', String(k));
-    b.title = `${k}º andar`;
+  for (let k = ANDARES; k >= 0; k--) {   // 0 = térreo (apês 001 a 008, com área privativa nas pontas)
+    const b = el('button', k ? '' : 'terreo', k ? String(k) : 'T');
+    b.title = nomeAndar(k);
     b.addEventListener('mouseenter', () => realcar(estado.torre, k));
     b.addEventListener('mouseleave', () => realcar(null));
     b.addEventListener('click', () => escolherAndar(k, true));
@@ -192,6 +202,7 @@ function escolherTorre(id, voar = true) {
   Object.values(faixas).flat().forEach(p => p.classList.remove('ativo'));
   botoesRegua.forEach(b => b && b.classList.remove('ativo'));
   if (voar && quadro4) { marcarPalco('torre'); irPara(torreDe(id).caixa, 950, 0.1); }
+  if (voar && t3d) { marcarPalco('torre'); t3d.escolherTorre(id); }
   painelVazio();
 }
 function verTodas() {
@@ -199,6 +210,7 @@ function verTodas() {
   Object.values(faixas).flat().forEach(p => p.classList.remove('ativo'));
   botoesRegua.forEach(b => b && b.classList.remove('ativo'));
   svg.classList.remove('foco'); irPara([0, 0, quadro4.w, quadro4.h], 900, 0);
+  t3d?.verTodas();
   painelVazio();
 }
 const vazio = $('#painel').innerHTML;
@@ -210,6 +222,7 @@ function escolherAndar(k, rolarPainel) {
   botoesRegua.forEach((b, i) => b && b.classList.toggle('ativo', i === k));
   svg.classList.add('foco');
   marcarPalco('andar'); irPara(caixaAndar(torreDe(estado.torre), k), 1000, 0);
+  t3d?.escolherAndar(estado.torre, k);
   mostrarPainel();
   if (rolarPainel && innerWidth <= 980) setTimeout(() => $('#painel').scrollIntoView({ behavior: 'smooth', block: 'start' }), 650);
 }
@@ -220,13 +233,13 @@ function mostrarPainel() {
   const livres = resumoAndar(andar);
   const box = el('div', 'painel-andar', `
     <span class="kicker">Passo 2 de 3 · Torre ${torre}</span>
-    <h3>${andar}º andar</h3>
+    <h3>${nomeAndar(andar)}</h3>
     <p class="resumo"><b>${livres} de ${FINAIS}</b> apartamentos disponíveis neste andar</p>`);
   const grade = el('div', 'unidades');
   for (let f = 1; f <= FINAIS; f++) {
     const st = statusDa(torre, andar, f);
-    const pl = PLANTAS[PLANTA_DO_FINAL[f]];
-    const num = andar * 100 + f;
+    const pl = plantaDe(andar, f);
+    const num = numeroDe(andar, f);
     const b = el('button', `uni ${st}`, `<i class="st ${st}"></i><strong>${num}</strong><span>${pl.titulo}</span><small>${NOME_STATUS[st]}</small>`);
     if (st === 'vendido') b.disabled = true;
     else b.addEventListener('click', ev => {
@@ -240,6 +253,50 @@ function mostrarPainel() {
   box.appendChild(el('ul', 'legenda', `<li><i class="st disponivel"></i>Disponível</li><li><i class="st reservado"></i>Reservado</li><li><i class="st vendido"></i>Vendido</li>`));
   painel.replaceChildren(box);
 }
+
+// ---------- as torres em 3D (montadas pelas plantas oficiais e pela implantação; a foto oficial fica no botão) ----------
+let t3d = null;
+const rotulos3d = $('#rotulos3d');
+async function montar3D() {
+  const canvas = $('#torres3d');
+  if (!canvas) return;
+  try {
+    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261105105912'), fetch('assets/torre3d.json').then(r => r.json())]);
+    t3d = new Torres3D(canvas, dados, {
+      statusDa, numeroDe,
+      onPasso: info => {
+        if (!info) { realcar(null); dica.hidden = true; return; }
+        const r = box.getBoundingClientRect(), pos = () => {
+          dica.hidden = false; dica.style.left = `${Math.min(info.x - r.left, r.width - 230)}px`; dica.style.top = `${info.y - r.top}px`;
+        };
+        if (info.unidade) {
+          const u = info.unidade, pl = plantaDe(estado.andar, u.final);
+          dica.innerHTML = `<strong>Apto ${u.num}</strong><span>${pl.titulo} · <em>${NOME_STATUS[u.st]}</em></span><span>Toque para entrar</span>`; pos(); return;
+        }
+        realcar(info.torre, info.andar);
+        if (info.andar < 1) { dica.hidden = true; return; }
+        dica.innerHTML = `<strong>${nomeAndar(info.andar)}</strong><span>Torre ${info.torre} · <em>${resumoAndar(info.andar, info.torre)} de ${FINAIS}</em> disponíveis</span><span>Toque para abrir o andar</span>`; pos();
+      },
+      onAndar: (t, k) => { if (t !== estado.torre) escolherTorre(t, false); escolherAndar(k, true); },
+      onUnidade: (u, ev) => { if (u.st !== 'vendido') abrirApto({ torre: estado.torre, andar: estado.andar, final: u.final, num: u.num, st: u.st }, false, ev); },
+    });
+    // nome das torres por cima do 3D (só na vista geral e de torre)
+    const bot = TORRES.map(t => { const b = el('button', 'rotulo3d', `Torre ${t.id}`); b.addEventListener('click', () => escolherTorre(t.id)); rotulos3d.appendChild(b); return [t.id, b]; });
+    t3d.aoQuadro = () => {
+      for (const [id, b] of bot) {
+        const p = t3d.posicaoNaTela(id), esconde = p.atras || estado.andar != null;
+        b.hidden = esconde; if (!esconde) { b.style.left = `${p.x * 100}%`; b.style.top = `${p.y * 100}%`; }
+        b.classList.toggle('on', id === estado.torre);
+      }
+    };
+    box.classList.add('em3d');
+  } catch (e) { console.warn('3D das torres indisponível', e); }
+}
+$('#verFoto')?.addEventListener('click', () => {
+  const foto = box.classList.toggle('foto');
+  $('#verFoto').textContent = foto ? 'Ver em 3D' : 'Foto oficial';
+  foto ? t3d?.parar() : t3d?.continuar();
+});
 
 // ---------- 3. apartamento em 3D ----------
 let planta3d = null;
@@ -265,7 +322,7 @@ function portal(elm, ev) {
 }
 
 // passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
-const VERSAO_APE = '?v=20261105091154';
+const VERSAO_APE = '?v=20261105105912';
 let preBaixado = false;
 function preBaixarApe(pl) {
   if (!pl.ape || preBaixado || navigator.connection?.saveData) return;
@@ -277,13 +334,13 @@ function preBaixarApe(pl) {
 }
 
 async function abrirApto(u, doHistorico = false, origem = null) {
-  const pl = PLANTAS[PLANTA_DO_FINAL[u.final]];
+  const pl = plantaDe(u.andar, u.final);
   plantaAtual = pl;
   $('#aptoTitulo').textContent = `Apto ${u.num}`;
-  $('#aptoOnde').textContent = `Torre ${u.torre} · ${u.andar}º andar · final ${String(u.final).padStart(2, '0')} · ${NOME_STATUS[u.st]}`;
+  $('#aptoOnde').textContent = `Torre ${u.torre} · ${nomeAndar(u.andar)} · final ${String(u.final).padStart(2, '0')} · ${NOME_STATUS[u.st]}`;
   $('#aptoPlanta').innerHTML = `<small>${pl.nome}</small><strong>${pl.titulo}</strong><ul>${pl.itens.map(i => `<li>${i}</li>`).join('')}</ul>`;
   $('#aptoComodos').replaceChildren(...salasDa(pl).map(c => {
-    const b = el('button', 'comodo', `<img src="${IMG + c.img}" alt="" loading="lazy"><span>${c.nome}</span>`);
+    const b = el('button', 'comodo', `<img src="${c.mini || IMG + c.img}" alt="" loading="lazy"><span>${c.nome}</span>`);
     b.addEventListener('click', () => entrarNoComodo(c));
     return b;
   }));
@@ -291,7 +348,6 @@ async function abrirApto(u, doHistorico = false, origem = null) {
   $('#btnTour').hidden = !(pl.tour || pl.ape);
   $('#aptoTourCard').hidden = !(pl.tour || pl.ape);
   $('#aptoTourSub').textContent = pl.ape ? 'Em 3D, cômodo por cômodo, de dia e no pôr do sol' : 'Sala, jantar, cozinha e varanda';
-  ligarZap($('#aptoZap'), `Oi, Matheus! Vi no site o apto ${u.num} da Torre ${u.torre} do Praia do Madeiro (${pl.titulo}). Quero saber valores e condições.`);
 
   apto.hidden = false;
   portal(apto, origem);
@@ -300,7 +356,7 @@ async function abrirApto(u, doHistorico = false, origem = null) {
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js?v=20261105091154');
+    const { Planta3D } = await import('./planta3d.js?v=20261105105912');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);
@@ -546,4 +602,4 @@ LAZER.forEach(l => {
   trilho.appendChild(b);
 });
 
-montarFachada().then(() => escolherTorre(1, false));
+montarFachada().then(() => { escolherTorre(1, false); montar3D(); });

@@ -2,7 +2,6 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="robots" content="noindex, nofollow">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Praia do Madeiro · Escolha seu apê">
   <meta property="og:description" content="Lançamento MRV em Ponta Negra, Natal/RN. Escolha a torre e o andar, veja a planta em 3D e entre no apê.">
@@ -21,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261105091154">
+  <link rel="stylesheet" href="styles.css?v=20261105105912">
   <script type="importmap">
     { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -40,10 +39,7 @@
       </svg>
       <span><small>Residencial</small>Praia do Madeiro</span>
     </a>
-    <a class="btn btn-zap btn-sm js-zap" data-msg="Oi, Matheus! Vi o site do Praia do Madeiro e quero mais informações." href="#">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.3Z"/></svg>
-      <span>Falar com o corretor</span>
-    </a>
+    <button class="btn btn-linha btn-sm" id="telaCheia" type="button">Tela cheia</button>
   </header>
 
   <!-- 1. Aérea: rolar aproxima das torres -->
@@ -77,10 +73,13 @@
 
     <div class="escolha-grade">
       <div class="fachada-box">
+        <canvas class="torres3d" id="torres3d" aria-label="As 4 torres em 3D: arraste para girar, toque numa torre ou num andar"></canvas>
+        <div class="rotulos3d" id="rotulos3d"></div>
         <div class="fachada" id="fachada"></div>
+        <button class="ver-foto" id="verFoto" type="button">Foto oficial</button>
         <div class="dica" id="dica" hidden></div>
         <button class="ver-todas" id="verTodas" type="button" hidden>← Ver as 4 torres</button>
-        <p class="fachada-nota">Toque numa torre ou direto no andar · as 4 torres são iguais por dentro</p>
+        <p class="fachada-nota">Arraste para girar · toque numa torre ou direto no andar</p>
       </div>
       <div class="regua" id="regua" aria-label="Andares"></div>
 
@@ -123,7 +122,6 @@
           <div><small>Renda familiar a partir de</small><strong>R$ 7 mil</strong></div>
           <div><small>Entrada</small><strong>Sinal de ato mínimo</strong></div>
         </div>
-        <a class="btn btn-zap js-zap" data-msg="Oi, Matheus! Quero fazer uma simulação para o Praia do Madeiro." href="#">Quero fazer minha simulação</a>
       </div>
       <figure class="mapa">
         <img src="assets/img/mapa.jpg" alt="Mapa com o que fica perto do Praia do Madeiro" loading="lazy">
@@ -140,7 +138,6 @@
     <p class="legal">Imagens ilustrativas. Fachada, plantas e mobiliário podem variar. Condições sujeitas a análise de crédito e à tabela vigente da MRV.</p>
   </footer>
 
-  <div class="prototipo" title="Numeração das torres e planta de cada final ainda não vieram do book do corretor">Prévia · lançamento 05/11</div>
 
   <!-- 5. Apartamento: planta 3D -->
   <div class="apto" id="apto" hidden role="dialog" aria-modal="true" aria-labelledby="aptoTitulo">
@@ -165,7 +162,6 @@
       </button>
       <h4>Toque num cômodo para entrar nele</h4>
       <div class="comodos" id="aptoComodos"></div>
-      <a class="btn btn-zap btn-full js-zap" id="aptoZap" href="#">Quero esse apê</a>
       <p class="apto-nota">Disponibilidade sujeita a confirmação com o corretor.</p>
     </div>
   </div>
@@ -208,6 +204,6 @@
     <button class="voltar" id="imersivoVoltar">← Voltar<span class="longo"> à planta</span></button>
   </div>
 
-  <script type="module" src="app.js?v=20261105091154"></script>
+  <script type="module" src="app.js?v=20261105105912"></script>
 </body>
 </html>
