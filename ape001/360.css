@@ -1,0 +1,28 @@
+/* visualizador 360°: usa a base de andar.css */
+.pontos { position: fixed; inset: 0; pointer-events: none; }
+.ponto { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; border: 0; background: none; padding: 0; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; color: #fff; font: 600 12px var(--f); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+.ponto i { width: 46px; height: 46px; border-radius: 50%; border: 2px solid #fff; background: rgba(213, 117, 177, .55); box-shadow: 0 0 0 8px rgba(255, 255, 255, .15); animation: anel 2s infinite; backdrop-filter: blur(4px); }
+.ponto:hover i { background: var(--rosa); }
+.ponto[hidden] { display: none; }
+@keyframes anel { 50% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); } }
+
+.trilho { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; gap: 10px; padding: 8px; border-radius: 18px;
+  background: var(--vidro); border: 1px solid var(--linha); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); max-width: calc(100vw - 24px); overflow-x: auto; }
+.trilho button { flex: none; width: 150px; border: 2px solid transparent; border-radius: 12px; padding: 0; overflow: hidden; background: #000; cursor: pointer; position: relative; }
+.trilho button img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; opacity: .75; transition: opacity .2s; }
+.trilho button span { position: absolute; left: 8px; bottom: 6px; font: 600 13px var(--f); color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, .8); }
+.trilho button.on { border-color: var(--rosa); }
+.trilho button.on img, .trilho button:hover img { opacity: 1; }
+.nota360 { right: 18px; text-align: center; }
+#cena.troca { animation: troca .6s ease; }
+@keyframes troca { from { opacity: .2; filter: blur(6px); } }
+
+@media (hover: none), (max-width: 700px) {
+  .trilho { bottom: 30px; gap: 6px; padding: 6px; }
+  .trilho button { width: 104px; border-radius: 10px; }
+  .trilho button span { font-size: 11px; }
+  .dica { top: auto; bottom: 120px; white-space: normal; text-align: center; width: calc(100vw - 32px); }
+  .nota360 { top: 66px; bottom: auto; left: 16px; right: 16px; text-align: left; }
+}
+@media (hover: none), (max-width: 700px) { .zap { bottom: 180px; } }
