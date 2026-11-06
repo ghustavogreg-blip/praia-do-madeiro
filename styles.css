@@ -493,3 +493,4 @@ h3 { font-size: 26px; }
 .palco-acoes button:hover { filter: brightness(1.12); }
 .fachada-box.a-pe .palco-acoes, .fachada-box:not(.em3d) .palco-acoes { display: none; }
 @media (max-width: 560px) { .palco-acoes { bottom: 50px; } .palco-acoes button { padding: 10px 13px; font-size: 13px; } .hero-acoes .btn-verde { flex-basis: 100%; } }
+.conheca { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--linha); display: grid; gap: 8px; } .conheca .lz-tour { margin: 0; }

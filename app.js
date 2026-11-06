@@ -1,4 +1,4 @@
-import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106170743';
+import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106175647';
 const nomeAndar = k => k ? `${k}º andar` : 'Térreo';
 
 const $ = s => document.querySelector(s);
@@ -21,6 +21,9 @@ if (!document.documentElement.requestFullscreen) telaCheia.hidden = true;   // i
 const LEVE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 820 || (navigator.deviceMemory || 8) <= 4;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+  // publicou versão nova: quando o novo sw.js assume, recarrega uma vez para mostrar a versão nova
+  const tinhaControle = !!navigator.serviceWorker.controller; let recarregou = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (tinhaControle && !recarregou) { recarregou = true; location.reload(); } });
   // os apês completos só depois que o site abriu e ficou parado um pouco (não disputa a internet com o que está abrindo)
   navigator.serviceWorker.ready.then(reg => setTimeout(() => {
     if (!navigator.connection?.saveData) reg.active?.postMessage({ baixar: LEVE ? 'leve' : 'cheio' });
@@ -274,7 +277,7 @@ async function montar3D() {
   const canvas = $('#torres3d');
   if (!canvas) return;
   try {
-    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106170743'), fetch('assets/torre3d.json').then(r => r.json())]);
+    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106175647'), fetch('assets/torre3d.json').then(r => r.json())]);
     t3d = new Torres3D(canvas, dados, {
       statusDa, numeroDe,
       onPasso: info => {
@@ -418,6 +421,11 @@ box.appendChild(palcoAcoes);
 palcoAcoes.querySelector('.pa-pe').addEventListener('click', () => entrarAPe(true));
 palcoAcoes.querySelector('.pa-360').addEventListener('click', () => abrirCond360('portaria'));
 $('#heroPasseio')?.addEventListener('click', () => entrarAPe(true));
+// painel ao lado das torres (o painel é refeito por innerHTML: o clique é pego no próprio painel)
+$('#painel').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-acao]'); if (!b) return;
+  if (b.dataset.acao === 'pe') entrarAPe(true); else abrirCond360('portaria');
+});
 const peUi = el('div', 'pe-ui', `
   <button class="pe-sair" id="peSair" type="button">← Sair do passeio</button>
   <button class="pe-tour" id="peTour" type="button"><i></i><span>Tour a pé</span></button>
@@ -518,7 +526,7 @@ function portal(elm, ev) {
 }
 
 // passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
-const VERSAO_APE = '?v=20261106170743';
+const VERSAO_APE = '?v=20261106175647';
 const preBaixados = new Set();
 function preBaixarApe(pl) {
   // cada apê (501, 503, 001) tem os seus arquivos: lê o apto.json dele para saber o 3D e a planta; no celular, os mapas leves
@@ -557,7 +565,7 @@ async function abrirApto(u, doHistorico = false, origem = null) {
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js?v=20261106170743');
+    const { Planta3D } = await import('./planta3d.js?v=20261106175647');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);
