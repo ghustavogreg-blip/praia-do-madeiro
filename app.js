@@ -1,4 +1,4 @@
-import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe } from './data.js?v=20261105135935';
+import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106084714';
 const nomeAndar = k => k ? `${k}º andar` : 'Térreo';
 
 const $ = s => document.querySelector(s);
@@ -16,8 +16,15 @@ document.addEventListener('fullscreenchange', marcarTela);
 if (!document.documentElement.requestFullscreen) telaCheia.hidden = true;   // iPhone não tem tela cheia de página
 
 // sem internet no estande: o site fica guardado no aparelho (sw.js); avisa uma vez quando terminou de guardar
+// celular e tablet recebem os mapas do apê pela metade (assets/m/): os cheios pedem ~600 MB de vídeo e travavam em "100%"
+// (mesma regra do andar.js)
+const LEVE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 820 || (navigator.deviceMemory || 8) <= 4;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+  // os apês completos só depois que o site abriu e ficou parado um pouco (não disputa a internet com o que está abrindo)
+  navigator.serviceWorker.ready.then(reg => setTimeout(() => {
+    if (!navigator.connection?.saveData) reg.active?.postMessage({ baixar: LEVE ? 'leve' : 'cheio' });
+  }, 20000)).catch(() => {});
   navigator.serviceWorker.addEventListener('message', ev => {
     if (!ev.data?.offline) return;
     const aviso = el('div', 'aviso-offline', 'Pronto: o site já funciona sem internet neste aparelho');
@@ -195,7 +202,11 @@ TORRES.forEach(t => {
   b.addEventListener('click', () => escolherTorre(t.id));
   abas.appendChild(b);
 });
+const abaLazer = el('button', 'aba aba-lazer', 'Lazer');
+abaLazer.setAttribute('role', 'tab'); abaLazer.addEventListener('click', () => abrirLazer());
+abas.appendChild(abaLazer);
 function escolherTorre(id, voar = true) {
+  pararTourLazer(); sairLazer();
   estado.torre = id; estado.andar = null;
   [...abas.children].forEach((b, i) => b.setAttribute('aria-selected', String(i + 1 === id)));
   svg?.querySelectorAll('.torre').forEach(g => g.classList.toggle('escolhida', +g.dataset.torre === id));
@@ -206,6 +217,7 @@ function escolherTorre(id, voar = true) {
   painelVazio();
 }
 function verTodas() {
+  pararTourLazer(); sairLazer();
   estado.andar = null; marcarPalco('geral');
   Object.values(faixas).flat().forEach(p => p.classList.remove('ativo'));
   botoesRegua.forEach(b => b && b.classList.remove('ativo'));
@@ -217,6 +229,7 @@ const vazio = $('#painel').innerHTML;
 function painelVazio() { $('#painel').innerHTML = vazio; }
 
 function escolherAndar(k, rolarPainel) {
+  pararTourLazer(); sairLazer();
   estado.andar = k;
   for (const [id, lista] of Object.entries(faixas)) lista.forEach((p, i) => p.classList.toggle('ativo', +id === estado.torre && i === k));
   botoesRegua.forEach((b, i) => b && b.classList.toggle('ativo', i === k));
@@ -261,7 +274,7 @@ async function montar3D() {
   const canvas = $('#torres3d');
   if (!canvas) return;
   try {
-    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261105135935'), fetch('assets/torre3d.json').then(r => r.json())]);
+    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106084714'), fetch('assets/torre3d.json').then(r => r.json())]);
     t3d = new Torres3D(canvas, dados, {
       statusDa, numeroDe,
       onPasso: info => {
@@ -269,6 +282,10 @@ async function montar3D() {
         const r = box.getBoundingClientRect(), pos = () => {
           dica.hidden = false; dica.style.left = `${Math.min(info.x - r.left, r.width - 230)}px`; dica.style.top = `${info.y - r.top}px`;
         };
+        if (info.lazer) {
+          const it = itemLazer(info.lazer);
+          dica.innerHTML = `<strong>${it.nome}</strong><span>${FOTOS_LAZER[it.n] ? 'Toque para ver a imagem' : 'Toque para aproximar'}</span>`; pos(); return;
+        }
         if (info.unidade) {
           const u = info.unidade, pl = plantaDe(estado.andar, u.final);
           dica.innerHTML = `<strong>Apto ${u.num}</strong><span>${pl.titulo} · <em>${NOME_STATUS[u.st]}</em></span><span>Toque para entrar</span>`; pos(); return;
@@ -278,20 +295,114 @@ async function montar3D() {
         dica.innerHTML = `<strong>${nomeAndar(info.andar)}</strong><span>Torre ${info.torre} · <em>${resumoAndar(info.andar, info.torre)} de ${FINAIS}</em> disponíveis</span><span>Toque para abrir o andar</span>`; pos();
       },
       onAndar: (t, k) => { if (t !== estado.torre) escolherTorre(t, false); escolherAndar(k, true); },
+      onLazer: n => { pararTourLazer(); escolherItemLazer(n); },
       onUnidade: (u, ev) => { if (u.st !== 'vendido') abrirApto({ torre: estado.torre, andar: estado.andar, final: u.final, num: u.num, st: u.st }, false, ev); },
     });
     // nome das torres por cima do 3D (só na vista geral e de torre)
     const bot = TORRES.map(t => { const b = el('button', 'rotulo3d', `Torre ${t.id}`); b.addEventListener('click', () => escolherTorre(t.id)); rotulos3d.appendChild(b); return [t.id, b]; });
     t3d.aoQuadro = () => {
       for (const [id, b] of bot) {
-        const p = t3d.posicaoNaTela(id), esconde = p.atras || estado.andar != null;
+        const p = t3d.posicaoNaTela(id), esconde = p.atras || estado.andar != null || estado.lazer;
         b.hidden = esconde; if (!esconde) { b.style.left = `${p.x * 100}%`; b.style.top = `${p.y * 100}%`; }
         b.classList.toggle('on', id === estado.torre);
       }
     };
     box.classList.add('em3d');
+    itensLazer = dados.lazer || [];
+    if (pedidoLazer) abrirLazer();
   } catch (e) { console.warn('3D das torres indisponível', e); }
 }
+
+// ---------- lazer: a área comum das 4 torres no próprio 3D (números da legenda oficial da implantação) ----------
+let itensLazer = [], pedidoLazer = false, tourLazer = null;
+const notaPalco = $('.fachada-nota').textContent;
+const itemLazer = n => itensLazer.find(i => i.n === n);
+function abrirLazer(rolar = false) {
+  if (rolar) $('#escolha').scrollIntoView({ behavior: 'smooth' });
+  if (!t3d) {   // 3D ainda carregando: abre quando ficar pronto; se o aparelho não tiver 3D, vai para a seção do lazer
+    pedidoLazer = true;
+    setTimeout(() => { if (!t3d && pedidoLazer) { pedidoLazer = false; $('#lazer').scrollIntoView({ behavior: 'smooth' }); } }, 8000);
+    return;
+  }
+  pedidoLazer = false;
+  if (box.classList.contains('foto')) $('#verFoto').click();   // o lazer é no 3D
+  estado.lazer = true; estado.andar = null;
+  [...abas.children].forEach(b => b.setAttribute('aria-selected', String(b === abaLazer)));
+  marcarPalco('lazer'); $('.escolha-grade').classList.add('modo-lazer');
+  $('.fachada-nota').textContent = 'Arraste para girar · toque num número para ver o item';
+  realcar(null); dica.hidden = true;
+  t3d.verLazer();
+  painelLazer();
+}
+function sairLazer() {
+  if (!estado.lazer) return;
+  estado.lazer = false; $('.escolha-grade').classList.remove('modo-lazer'); abaLazer.setAttribute('aria-selected', 'false');
+  $('.fachada-nota').textContent = notaPalco;
+}
+function painelLazer() {
+  const caixa = el('div', 'painel-lazer', `
+    <span class="kicker">Área comum das 4 torres</span>
+    <h3>Lazer do condomínio</h3>
+    <p class="resumo">As quatro torres dividem o mesmo térreo: o lazer fica junto da portaria e é de todos os moradores. Os números são os da implantação oficial.</p>`);
+  const play = el('button', 'lz-tour', '<b></b><span><strong>Tour pelo lazer</strong><em>Da portaria à piscina, com as imagens oficiais</em></span>');
+  play.addEventListener('click', () => tourLazer ? pararTourLazer() : comecarTourLazer());
+  caixa.appendChild(play);
+  for (const [titulo, filtro] of [['Lazer', n => n < 15], ['Apoio', n => n > 15]]) {
+    caixa.appendChild(el('h4', '', titulo));
+    const lista = el('div', 'lz-lista');
+    for (const it of itensLazer.filter(i => filtro(i.n))) {
+      const f = FOTOS_LAZER[it.n];
+      const b = el('button', `lz-item${it.n > 15 ? ' apoio' : ''}`, `<i>${it.n}</i><span>${it.nome}</span>${f ? `<img src="${IMG + f[0].img}" alt="" loading="lazy">` : ''}`);
+      b.dataset.n = it.n;
+      b.addEventListener('click', () => { pararTourLazer(); escolherItemLazer(it.n); });
+      lista.appendChild(b);
+    }
+    caixa.appendChild(lista);
+  }
+  caixa.appendChild(el('p', 'apto-nota', 'Imagens ilustrativas da MRV. Posições conforme a implantação do empreendimento.'));
+  $('#painel').replaceChildren(caixa);
+}
+function marcarItemLazer(n) {
+  document.querySelectorAll('.lz-item').forEach(b => b.classList.toggle('on', +b.dataset.n === n));
+  const on = document.querySelector('.lz-item.on');
+  const p = $('#painel');   // rola só a lista (no computador o painel tem rolagem própria); a página fica parada no 3D
+  if (on && p.scrollHeight > p.clientHeight + 4) p.scrollTo({ top: on.offsetTop - p.clientHeight / 2, behavior: 'smooth' });
+}
+async function escolherItemLazer(n, abrir = true) {
+  if (!estado.lazer) abrirLazer();
+  marcarItemLazer(n);
+  await t3d.irLazer(n);
+  const f = FOTOS_LAZER[n];
+  if (abrir && f && estado.lazer) abrirFoto(f, 0);
+}
+// tour automático: voa de item em item e mostra a imagem oficial num cartão por cima do 3D (tocar no cartão abre grande)
+const cartao = el('button', 'lz-cartao'); cartao.hidden = true; box.appendChild(cartao);
+cartao.addEventListener('click', () => { const n = +cartao.dataset.n; pararTourLazer(); abrirFoto(FOTOS_LAZER[n], 0); });
+async function comecarTourLazer() {
+  if (!estado.lazer) abrirLazer();
+  const vez = tourLazer = {};
+  document.querySelector('.lz-tour')?.classList.add('tocando');
+  for (const n of TOUR_LAZER) {
+    if (tourLazer !== vez) return;
+    cartao.hidden = true; marcarItemLazer(n);
+    await t3d.irLazer(n, 2200);
+    if (tourLazer !== vez) return;
+    const f = FOTOS_LAZER[n][0], it = itemLazer(n);
+    cartao.dataset.n = n;
+    cartao.innerHTML = `<img src="${IMG + f.img}" alt=""><span><i>${n}</i>${it.nome}<small>Toque para ver grande</small></span>`;
+    cartao.hidden = false;
+    await new Promise(r => setTimeout(r, 4200));
+  }
+  if (tourLazer === vez) { pararTourLazer(); t3d.verLazer(); marcarItemLazer(null); }
+}
+function pararTourLazer() {
+  tourLazer = null; cartao.hidden = true;
+  document.querySelector('.lz-tour')?.classList.remove('tocando');
+}
+// arrastar o 3D durante o tour para o tour (o vendedor assume)
+$('#torres3d')?.addEventListener('pointerdown', () => { if (tourLazer) pararTourLazer(); });
+document.querySelectorAll('a[href="#lazer"]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); abrirLazer(true); }));
+$('#lazer3d')?.addEventListener('click', () => abrirLazer(true));
 $('#verFoto')?.addEventListener('click', () => {
   const foto = box.classList.toggle('foto');
   $('#verFoto').textContent = foto ? 'Ver em 3D' : 'Foto oficial';
@@ -322,14 +433,18 @@ function portal(elm, ev) {
 }
 
 // passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
-const VERSAO_APE = '?v=20261105135935';
-let preBaixado = false;
+const VERSAO_APE = '?v=20261106084714';
+const preBaixados = new Set();
 function preBaixarApe(pl) {
-  if (!pl.ape || preBaixado || navigator.connection?.saveData) return;
-  preBaixado = true;
-  const arqs = ['ape501_draco.glb', 'cena.json', 'anda.png', 'planta_501.webp', 'ambiente_dia.json', 'ambiente_tarde.json', 'ceu_dia.webp', 'ceu_tarde.webp',
-    ...['piso', 'paredes', 'moveis', 'decor'].flatMap(g => ['cor', 'brilho', 'luz_dia', 'luz_tarde'].map(t => `${g}_${t}.webp`))];
-  const baixar = () => arqs.forEach(a => fetch(`${pl.ape.pasta}assets/${a}${VERSAO_APE}`, { priority: 'low' }).catch(() => {}));
+  // cada apê (501, 503, 001) tem os seus arquivos: lê o apto.json dele para saber o 3D e a planta; no celular, os mapas leves
+  if (!pl.ape || preBaixados.has(pl.ape.pasta) || navigator.connection?.saveData) return;
+  preBaixados.add(pl.ape.pasta);
+  const A = `${pl.ape.pasta}assets/`, M = LEVE ? 'm/' : '';
+  const baixar = () => fetch(`${A}apto.json${VERSAO_APE}`).then(r => r.json()).then(cfg => {
+    const arqs = [cfg.glb, 'cena.json', 'anda.png', cfg.planta, 'ambiente_dia.json', 'ambiente_tarde.json', M + 'ceu_dia.webp', M + 'ceu_tarde.webp',
+      ...['piso', 'paredes', 'moveis', 'decor'].flatMap(g => ['cor', 'brilho', 'luz_dia', 'luz_tarde'].map(t => `${M}${g}_${t}.webp`))];
+    arqs.forEach(a => fetch(`${A}${a}${VERSAO_APE}`, { priority: 'low' }).catch(() => {}));
+  }).catch(() => preBaixados.delete(pl.ape.pasta));
   setTimeout(() => (window.requestIdleCallback || setTimeout)(baixar), 1500);   // depois que a planta 3D já abriu
 }
 
@@ -351,12 +466,13 @@ async function abrirApto(u, doHistorico = false, origem = null) {
 
   apto.hidden = false;
   portal(apto, origem);
+  t3d?.parar();   // as torres ficam escondidas atrás do apê: não precisam desenhar (libera o celular)
   preBaixarApe(pl);
   document.body.style.overflow = 'hidden';
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js?v=20261105135935');
+    const { Planta3D } = await import('./planta3d.js?v=20261106084714');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);
@@ -372,6 +488,7 @@ function fecharApto(doHistorico = false) {
   apto.hidden = true;
   document.body.style.overflow = '';
   planta3d?.parar();
+  if (!box.classList.contains('foto')) t3d?.continuar();
   if (!doHistorico && history.state?.apto) history.back();
 }
 $('#aptoFechar').addEventListener('click', () => fecharApto());
@@ -570,6 +687,7 @@ function abrirImersivo(pagina, comodo) {
   quadro.src = `${plantaAtual.ape.pasta}${pagina}?apto=${u.num}${comodo ? '#' + comodo : ''}`;
   imersivo.hidden = false;
   portal(imersivo, null);
+  planta3d?.parar();   // o passeio e o 360° precisam do aparelho inteiro
   quadro.addEventListener('load', () => quadro.contentWindow?.focus(), { once: true });   // teclado (W A S D) vai para o passeio
   history.pushState({ apto: u, imersivo: true }, '', location.hash);
 }
@@ -577,7 +695,7 @@ function fecharImersivo(doHistorico = false) {
   if (imersivo.hidden) return;
   imersivo.hidden = true;
   quadro.src = 'about:blank';   // para o 3D e libera a memória (importante no celular)
-  planta3d?.voar('iso'); marcarVista('iso');
+  planta3d?.continuar(); planta3d?.voar('iso'); marcarVista('iso');
   if (!doHistorico && history.state?.imersivo) history.back();
 }
 $('#imersivoVoltar').addEventListener('click', () => fecharImersivo());

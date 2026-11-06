@@ -167,6 +167,7 @@ export class Planta3D {
   }
 
   parar() { this.rodando = false; }
+  continuar() { if (!this.rodando && this.W) { this.rodando = true; requestAnimationFrame(this.loop); } }
 
   loop(now) {
     if (!this.rodando) return;

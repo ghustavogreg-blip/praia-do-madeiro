@@ -5,8 +5,12 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 
 const A = 'assets/';
+// celular e tablet: mapas pela metade (assets/m/, gerados pelo montar_site.py). Os cheios pedem ~600 MB de vídeo e o navegador
+// do celular travava em "100%"; os leves ficam em ~150 MB. Mesma regra do app.js do site do prédio.
+const LEVE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 820 || (navigator.deviceMemory || 8) <= 4;
+const AM = LEVE ? A + 'm/' : A;
 // o montar_site.py troca por '?v=<data>': quem já visitou não fica com o 3D de uma versão e as texturas de outra
-const VERSAO = '?v=20261105135935';
+const VERSAO = '?v=20261106084714';
 const $ = s => document.querySelector(s);
 const cena = await fetch(A + 'cena.json' + VERSAO).then(r => r.json());
 // o que muda de um apê para outro (501 / 503): cômodos, espelhos, tour, links diretos, arquivos
@@ -25,8 +29,8 @@ const COMODOS = apto.comodos;   // retângulos em pixels da planta, o primeiro q
 
 // ---------- renderizador ----------
 const canvas = $('#cena');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LEVE });
+renderer.setPixelRatio(Math.min(devicePixelRatio, LEVE ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.AgXToneMapping;
 const scene = new THREE.Scene();
@@ -39,7 +43,7 @@ manager.onProgress = (_, feitos, total) => { const p = Math.round(feitos / total
 const texLoader = new THREE.TextureLoader(manager);
 // rede ruim (4G) ou falha passageira do servidor: tenta de novo antes de desistir, senão o apê fica preso em "Montando"
 const tentar = (carregar, vezes = 4) => carregar().catch(e => vezes > 1 ? new Promise(r => setTimeout(r, 1200)).then(() => tentar(carregar, vezes - 1)) : Promise.reject(e));
-const tex = (nome, srgb = true) => tentar(() => texLoader.loadAsync(A + nome)).then(t => {
+const tex = (nome, srgb = true) => tentar(() => texLoader.loadAsync(AM + nome)).then(t => {
   t.flipY = false; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
 });
@@ -65,7 +69,7 @@ const [gltf, mascara, ...texs] = await Promise.all([
     .loadAsync(A + apto.glb)),
   tentar(() => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A + 'anda.png' + VERSAO; })),
   ...GRUPOS.flatMap(g => [tex(`${g}_cor.webp`), tex(`${g}_luz_dia.webp`), tex(`${g}_luz_tarde.webp`), tex(`${g}_brilho.webp`, false)]),
-  ...['dia', 'tarde'].map(h => tentar(() => texLoader.loadAsync(A + `ceu_${h}.webp`)).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; return t; })),
+  ...['dia', 'tarde'].map(h => tentar(() => texLoader.loadAsync(AM + `ceu_${h}.webp`)).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; return t; })),
   ...['dia', 'tarde'].map(h => hdr(`ambiente_${h}.json`)),
 ]);
 const N = GRUPOS.length * 4;
@@ -103,7 +107,7 @@ scene.add(gltf.scene);
 const ESPELHOS = apto.espelhos;
 for (const e of ESPELHOS) {   // parede: n (olha para o sul), s (para o norte), o (para o leste); z0/z1 = altura (padrão 1,10–1,95 m)
   const largura = (e.ate - e.de) * SC, meio = (e.de + e.ate) / 2, z0 = e.z0 ?? 1.10, z1 = e.z1 ?? 1.95, alto = z1 - z0;
-  const espelho = new Reflector(new THREE.PlaneGeometry(largura, alto), { clipBias: 0.003, textureWidth: 768, textureHeight: Math.round(768 * alto / largura), color: 0xdfe3e4 });
+  const espelho = new Reflector(new THREE.PlaneGeometry(largura, alto), { clipBias: 0.003, textureWidth: LEVE ? 512 : 768, textureHeight: Math.round((LEVE ? 512 : 768) * alto / largura), color: 0xdfe3e4 });
   const y = (z0 + z1) / 2;
   if (e.parede === 'n') { const [x, z] = paraMundo(meio, e.face); espelho.position.set(x, y, z + 0.003); }
   else if (e.parede === 's') { const [x, z] = paraMundo(meio, e.face); espelho.position.set(x, y, z - 0.003); espelho.rotation.y = Math.PI; }

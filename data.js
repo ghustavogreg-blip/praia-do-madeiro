@@ -101,3 +101,19 @@ export const LAZER = [
   { nome: 'Playground e pet place', img: 'playground-pet.jpg' },
   { nome: 'Portaria', img: 'guarita.jpg' },
 ];
+
+// Área comum das 4 torres, pela legenda da implantação oficial (MRV_PDM_PH_IMPLANTACAO): o número é o da planta;
+// a posição de cada um no 3D está em assets/torre3d.json (lazer). Fotos = perspectivas oficiais da MRV.
+export const FOTOS_LAZER = {
+  1: [{ nome: 'Piscina adulto e infantil', img: 'piscina.jpg' }, { nome: 'Piscina', img: 'piscina-vertical.jpg' }],
+  2: [{ nome: 'Piscina adulto e infantil', img: 'piscina.jpg' }],
+  3: [{ nome: 'Churrasqueira', img: 'churrasqueira.jpg' }],
+  4: [{ nome: 'Salão de festas', img: 'salao-festas.jpg' }],
+  5: [{ nome: 'Academia', img: 'academia.jpg' }],
+  6: [{ nome: 'Espaço beleza', img: 'espaco-beleza.jpg' }],
+  7: [{ nome: 'Playground e pet place', img: 'playground-pet.jpg' }],
+  9: [{ nome: 'Playground e pet place', img: 'playground-pet.jpg' }],
+  16: [{ nome: 'Portaria', img: 'guarita.jpg' }],
+};
+// o tour do lazer passa pelos itens que têm perspectiva oficial, na ordem de quem anda da portaria para dentro
+export const TOUR_LAZER = [16, 6, 4, 3, 5, 7, 1];

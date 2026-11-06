@@ -83,3 +83,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--roxo-e
 .tour-btn.on i::after { left: 7px; top: 7px; width: 10px; height: 10px; border: 0; background: var(--roxo-esc); border-radius: 2px; }
 .tour-btn:hover { filter: brightness(1.06); }
 @media (hover: none), (max-width: 700px) { .tour-btn { left: 16px; transform: none; bottom: 24px; padding: 10px 16px 10px 10px; font-size: 14px; } }   /* embaixo do direcional, sem bater no nome do cômodo */
+.carregando .falhou { max-width: 300px; padding: 0 20px; }
+.carregando .falhou p { color: rgba(255, 255, 255, .8); font-size: 15px; line-height: 1.45; margin: 10px 0 18px; }
+.carregando .falhou button { border: 0; border-radius: 999px; padding: 12px 22px; background: var(--rosa); color: #fff; font: 600 15px "Outfit", sans-serif; cursor: pointer; }

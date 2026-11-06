@@ -17,8 +17,8 @@ const COR = {
 };
 
 export class Torres3D {
-  constructor(canvas, dados, { onPasso, onAndar, onUnidade, statusDa, numeroDe } = {}) {
-    this.d = dados; this.cb = { onPasso, onAndar, onUnidade }; this.statusDa = statusDa; this.numeroDe = numeroDe;
+  constructor(canvas, dados, { onPasso, onAndar, onUnidade, onLazer, statusDa, numeroDe } = {}) {
+    this.d = dados; this.cb = { onPasso, onAndar, onUnidade, onLazer }; this.statusDa = statusDa; this.numeroDe = numeroDe;
     this.canvas = canvas;
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.outputColorSpace = THREE.SRGBColorSpace;
@@ -39,7 +39,7 @@ export class Torres3D {
     sol.shadow.mapSize.set(2048, 2048); sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.6;
     cena.add(sol);
 
-    this.montarChao(); this.montarEntorno(); this.montarTorres();
+    this.montarChao(); this.montarEntorno(); this.montarLazer(); this.montarTorres();
     // sombra de contato (oclusão de ambiente) só em tela grande: no celular pesa
     if (innerWidth > 900) {
       this.composer = new EffectComposer(r);
@@ -47,7 +47,7 @@ export class Torres3D {
       const ao = new GTAOPass(cena, this.camera); ao.updateGtaoMaterial({ radius: 1.2, distanceFallOff: 1, thickness: 1.5 }); ao.blendIntensity = 0.85;
       this.composer.addPass(ao); this.composer.addPass(new OutputPass());
     }
-    this.estado = { torre: null, andar: null };
+    this.estado = { torre: null, andar: null, lazer: false };
     this.ray = new THREE.Raycaster(); this.mouse = new THREE.Vector2();
     this.ligar();
     this.resize(); new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
@@ -88,6 +88,61 @@ export class Torres3D {
     const azul = new THREE.MeshStandardMaterial({ color: 0x3d8fc8, roughness: 0.5 });
     for (const [x, z, r, h] of d.tanques || []) {
       const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20), azul); c.position.set(x, h / 2, z); c.castShadow = true; this.cena.add(c);
+    }
+  }
+
+  montarLazer() {
+    // o lazer da implantação ganha volume: água das piscinas, guarda-sóis, espreguiçadeiras, cerca viva, playground e pet place
+    const d = this.d, add = (o, sombra = true) => { o.castShadow = sombra; o.receiveShadow = true; this.cena.add(o); return o; };
+    const caixa = (x0, z0, x1, z1, y0, y1, mat) => { const b = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x1 - x0), y1 - y0, Math.abs(z1 - z0)), mat); b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); return add(b); };
+    const agua = new THREE.MeshStandardMaterial({ color: 0x3fa7d6, roughness: 0.06, metalness: 0.15, transparent: true, opacity: 0.88, envMapIntensity: 1.6 });
+    const borda = new THREE.MeshStandardMaterial({ color: 0xece7dc, roughness: 0.8 });
+    for (const [x0, z0, x1, z1] of d.piscinas || []) caixa(x0 + 0.15, z0 + 0.15, x1 - 0.15, z1 - 0.15, 0.0, 0.06, agua).castShadow = false;
+    // borda (pedra) só no contorno de fora de cada retângulo: dá a leitura de piscina vista de perto
+    for (const [x0, z0, x1, z1] of d.piscinas || []) {
+      for (const [a0, b0, a1, b1] of [[x0, z0, x1, z0 + 0.3], [x0, z1 - 0.3, x1, z1], [x0, z0, x0 + 0.3, z1], [x1 - 0.3, z0, x1, z1]]) caixa(a0, b0, a1, b1, 0, 0.1, borda);
+    }
+    const lona = new THREE.MeshStandardMaterial({ color: 0xefe8da, roughness: 0.9, side: THREE.DoubleSide }), metal = new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 0.5 });
+    for (const [x, z, r] of d.sombreiros || []) {
+      const haste = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.5, 8), metal)); haste.position.set(x, 1.25, z);
+      const cone = add(new THREE.Mesh(new THREE.ConeGeometry(r, 0.7, 10, 1, true), lona)); cone.position.set(x, 2.55, z);
+      const mesa = add(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.05, 16), borda)); mesa.position.set(x, 0.74, z);
+    }
+    const madeira = new THREE.MeshStandardMaterial({ color: 0x8a5d3b, roughness: 0.8 });
+    for (const [x, z] of d.espreguicadeiras || []) {
+      caixa(x - 0.35, z - 1.0, x + 0.35, z + 0.6, 0.15, 0.32, madeira);
+      const enc = caixa(x - 0.35, z - 0.25, x + 0.35, z + 0.25, 0.3, 0.36, madeira); enc.position.set(x, 0.55, z - 1.05); enc.rotation.x = 1.0;
+    }
+    const verde = new THREE.MeshStandardMaterial({ color: 0x4f7a3a, roughness: 0.95, flatShading: true });
+    for (const [x0, z0, x1, z1] of d.cercas_vivas || []) caixa(x0, z0, x1, z1, 0, 1.1, verde);
+    const pg = d.playground;
+    if (pg) {
+      const cor = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
+      const [tx, tz] = pg.torre, [ex, ez] = pg.escorrega;
+      caixa(tx - 0.9, tz - 0.9, tx + 0.9, tz + 0.9, 1.2, 1.35, cor(0xf2b134));
+      for (const [dx, dz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) caixa(tx + dx - 0.06, tz + dz - 0.06, tx + dx + 0.06, tz + dz + 0.06, 0, 2.6, cor(0x3d8fc8));
+      const telhado = add(new THREE.Mesh(new THREE.ConeGeometry(1.35, 0.9, 4), cor(0xe0533d))); telhado.position.set(tx, 3.05, tz); telhado.rotation.y = Math.PI / 4;
+      const esc = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, Math.hypot(ez - tz - 0.9, 1.25)), cor(0xe0533d)));
+      esc.position.set(ex, 0.65, (tz + 0.9 + ez) / 2); esc.rotation.x = -Math.atan2(1.25, ez - tz - 0.9);
+      pg.baby.forEach(([bx, bz], i) => { const b = add(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.7, 12), cor([0x76c043, 0xf2b134, 0xe0533d][i % 3]))); b.position.set(bx, 0.35, bz); });
+    }
+    if (d.pet) {   // pet place: cerca baixa de tela
+      const [x0, z0, x1, z1] = d.pet, tela = new THREE.MeshStandardMaterial({ color: 0x3b3d40, roughness: 0.6, transparent: true, opacity: 0.55 });
+      for (const [a0, b0, a1, b1] of [[x0, z0, x1, z0 + 0.05], [x0, z1 - 0.05, x1, z1], [x0, z0, x0 + 0.05, z1], [x1 - 0.05, z0, x1, z1]]) caixa(a0, b0, a1, b1, 0, 1.2, tela);
+    }
+    // pinos com o número da legenda oficial (rosa = lazer, verde = apoio); aparecem no modo lazer
+    // numa cena à parte, desenhada por cima depois da sombra de contato (senão a oclusão escurece o pino e o quadrado em volta)
+    this.cenaTopo = new THREE.Scene();
+    this.pinos = new THREE.Group(); this.pinos.visible = false; this.cenaTopo.add(this.pinos);
+    this.lazer = {};
+    for (const item of d.lazer || []) {
+      const cor = item.n < 15 ? '#e2669f' : '#5cb98a';
+      const sprites = item.p.map(([x, z]) => {
+        const s = pino(String(item.n), cor); s.position.set(x, 6.2, z); s.userData.lazer = item.n;
+        this.pinos.add(s); return s;
+      });
+      this.lazer[item.n] = { ...item, sprites, so_escolhido: item.p.length > 4 };   // os 11 bicicletários só aparecem quando escolhidos
+      if (item.p.length > 4) sprites.forEach(s => { s.visible = false; });
     }
   }
 
@@ -212,6 +267,16 @@ export class Torres3D {
     const dist = 44 / Math.min(1, a / 1.1);   // em tela em pé o andar (40 m de comprido) precisa de mais distância
     return { alvo: new THREE.Vector3(cx, y, cz + 1), pos: new THREE.Vector3(cx + dist * 0.12, y + dist * 0.92, cz + dist * 0.45) };
   }
+  vistaLazer() {
+    // como a perspectiva oficial da implantação: do canto sudeste, de cima, com o lazer na frente e as torres atrás
+    const k = Math.max(1, 0.8 / Math.max(0.5, this.camera.aspect));
+    return { alvo: new THREE.Vector3(28, 0, 22), pos: new THREE.Vector3(28 + 62 * k, 52 * k, 22 + 34 * k) };
+  }
+  vistaItem(n) {
+    const it = this.lazer[n], ps = it.p, cx = ps.reduce((a, p) => a + p[0], 0) / ps.length, cz = ps.reduce((a, p) => a + p[1], 0) / ps.length;
+    const raio = Math.max(...ps.map(p => Math.hypot(p[0] - cx, p[1] - cz))), k = Math.max(1, 1.1 / Math.max(0.5, this.camera.aspect)) * (raio > 20 ? 3.2 : 1);
+    return { alvo: new THREE.Vector3(cx, 1.5, cz), pos: new THREE.Vector3(cx + 16 * k, 1.5 + 17 * k, cz + 24 * k) };
+  }
   voarPara({ alvo, pos }, dur = 1100) {
     const c = this.camera, ct = this.controles;
     if (!dur) { c.position.copy(pos); ct.target.copy(alvo); ct.update(); return Promise.resolve(); }
@@ -221,16 +286,33 @@ export class Torres3D {
 
   // ---------- estados ----------
   escolherTorre(id) {
-    this.estado = { torre: id, andar: null }; this.mostrarCorte(null);
+    this.marcarLazer(false); this.estado = { torre: id, andar: null }; this.mostrarCorte(null);
     return this.voarPara(this.vistaTorre(id));
   }
   verTodas() {
-    this.estado = { torre: null, andar: null }; this.mostrarCorte(null);
+    this.marcarLazer(false); this.estado = { torre: null, andar: null }; this.mostrarCorte(null);
     return this.voarPara(this.vistaGeral());
   }
   escolherAndar(id, k) {
-    this.estado = { torre: id, andar: k }; this.mostrarCorte(id, k);
+    this.marcarLazer(false); this.estado = { torre: id, andar: k }; this.mostrarCorte(id, k);
     return this.voarPara(this.vistaAndar(id, k));
+  }
+  verLazer() {
+    this.estado = { torre: null, andar: null, lazer: true }; this.mostrarCorte(null); this.marcarLazer(true); this.escolherItem(null);
+    return this.voarPara(this.vistaLazer(), 1400);
+  }
+  irLazer(n, dur = 1300) {
+    if (!this.estado.lazer) { this.estado = { torre: null, andar: null, lazer: true }; this.mostrarCorte(null); this.marcarLazer(true); }
+    this.escolherItem(n);
+    return this.voarPara(this.vistaItem(n), dur);
+  }
+  marcarLazer(on) { this.estado.lazer = on; if (this.pinos) this.pinos.visible = on; if (!on) this.escolherItem(null); }
+  escolherItem(n) {
+    this.itemAtual = n;
+    for (const it of Object.values(this.lazer || {})) {
+      const on = it.n === n;
+      for (const s of it.sprites) { s.visible = !it.so_escolhido || on; s.scale.setScalar(on ? PINO * 1.45 : PINO); s.material.opacity = n == null || on ? 1 : 0.55; }
+    }
   }
   mostrarCorte(id, k) {
     for (const [tid, t] of Object.entries(this.torres)) {
@@ -292,6 +374,10 @@ export class Torres3D {
   }
   achar() {
     this.ray.setFromCamera(this.mouse, this.camera);
+    if (this.estado.lazer) {
+      const h = this.ray.intersectObjects(this.pinos.children.filter(s => s.visible), false)[0];
+      return h ? { lazer: h.object.userData.lazer } : null;
+    }
     if (this.corte.visible) {
       const h = this.ray.intersectObjects(this.corte.children.filter(o => o.userData.final != null), false)[0];
       if (h) return { unidade: h.object.userData };
@@ -305,6 +391,8 @@ export class Torres3D {
   passar(e) {
     const a = this.achar();
     this.canvas.style.cursor = a ? 'pointer' : 'grab';
+    if (a?.lazer) { this.cb.onPasso?.({ lazer: a.lazer, x: e.clientX, y: e.clientY }); return; }
+    if (this.estado.lazer) { this.cb.onPasso?.(null); return; }
     if (a?.unidade) { this.realcar(null); this.cb.onPasso?.({ unidade: a.unidade, x: e.clientX, y: e.clientY }); return; }
     if (!a || (this.estado.andar != null && a.torre === this.estado.torre)) { this.realcar(null); this.cb.onPasso?.(null); return; }
     this.realcar(a.torre, a.andar); this.cb.onPasso?.({ ...a, x: e.clientX, y: e.clientY });
@@ -312,6 +400,7 @@ export class Torres3D {
   tocar(e) {
     const a = this.achar();
     if (!a) return;
+    if (a.lazer) return this.cb.onLazer?.(a.lazer, e);
     if (a.unidade) return this.cb.onUnidade?.(a.unidade, e);
     if (this.estado.andar != null && a.torre === this.estado.torre) return;
     this.cb.onAndar?.(a.torre, a.andar);
@@ -344,9 +433,23 @@ export class Torres3D {
     }
     this.controles.update();
     if (this.composer) this.composer.render(); else this.renderer.render(this.cena, this.camera);
+    if (this.pinos?.visible) { const r = this.renderer; r.autoClear = false; r.clearDepth(); r.render(this.cenaTopo, this.camera); r.autoClear = true; }
     this.aoQuadro?.();
     requestAnimationFrame(this.loop);
   }
+}
+
+const PINO = 0.075;   // tamanho fixo na tela (fração da altura), perto ou longe
+// pino do lazer: círculo com o número da legenda oficial (sempre visível por cima)
+function pino(txt, cor) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.arc(64, 68, 54, 0, 7); g.fill();
+  g.fillStyle = cor; g.beginPath(); g.arc(64, 62, 52, 0, 7); g.fill();
+  g.lineWidth = 6; g.strokeStyle = '#fff'; g.stroke();
+  g.fillStyle = '#fff'; g.font = '700 60px Outfit, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 64, 66);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true, toneMapped: false, sizeAttenuation: false }));
+  s.scale.setScalar(PINO); s.renderOrder = 11; return s;
 }
 
 // número do apê flutuando em cima da unidade (textura de canvas)
