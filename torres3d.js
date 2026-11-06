@@ -17,8 +17,8 @@ const COR = {
 };
 
 export class Torres3D {
-  constructor(canvas, dados, { onPasso, onAndar, onUnidade, onLazer, statusDa, numeroDe } = {}) {
-    this.d = dados; this.cb = { onPasso, onAndar, onUnidade, onLazer }; this.statusDa = statusDa; this.numeroDe = numeroDe;
+  constructor(canvas, dados, { onPasso, onAndar, onUnidade, onLazer, onPerto, onTourPe, statusDa, numeroDe } = {}) {
+    this.d = dados; this.cb = { onPasso, onAndar, onUnidade, onLazer, onPerto, onTourPe }; this.statusDa = statusDa; this.numeroDe = numeroDe;
     this.canvas = canvas;
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.outputColorSpace = THREE.SRGBColorSpace;
@@ -39,7 +39,7 @@ export class Torres3D {
     sol.shadow.mapSize.set(2048, 2048); sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.6;
     cena.add(sol);
 
-    this.montarChao(); this.montarEntorno(); this.montarLazer(); this.montarTorres();
+    this.montarChao(); this.montarEntorno(); this.montarLazer(); this.montarTorres(); this.montarRua();
     // sombra de contato (oclusão de ambiente) só em tela grande: no celular pesa
     if (innerWidth > 900) {
       this.composer = new EffectComposer(r);
@@ -144,6 +144,148 @@ export class Torres3D {
       this.lazer[item.n] = { ...item, sprites, so_escolhido: item.p.length > 4 };   // os 11 bicicletários só aparecem quando escolhidos
       if (item.p.length > 4) sprites.forEach(s => { s.visible = false; });
     }
+  }
+
+  // ---------- o que só aparece de perto, andando a pé: céu, muro, pérgola da portaria, gradil da piscina ----------
+  p14(px, py) { const { w, h, px: P = 1400 } = this.d.chao; return [(px / P - 0.5) * w, py / P * w - h / 2]; }   // px da prévia de 1400 -> m
+  montarRua() {
+    const add = (o, sombra = true) => { o.castShadow = sombra; o.receiveShadow = true; this.cena.add(o); return o; };
+    const caixa = (x0, z0, x1, z1, y0, y1, mat) => { const b = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x1 - x0) || 0.01, y1 - y0, Math.abs(z1 - z0) || 0.01), mat); b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); return add(b); };
+    // céu: degradê azul (só se vê de baixo; de cima continua a cor de fundo com neblina)
+    const ceu = new THREE.Mesh(new THREE.SphereGeometry(700, 32, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { topo: { value: new THREE.Color(0x5d93cf) }, meio: { value: new THREE.Color(0xbcd6ec) }, baixo: { value: new THREE.Color(0xe7eef2) } },
+      vertexShader: 'varying vec3 p; void main(){ p = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 topo; uniform vec3 meio; uniform vec3 baixo; varying vec3 p; void main(){ float y = max(p.y, 0.0); vec3 c = mix(baixo, meio, smoothstep(0.0, 0.12, y)); c = mix(c, topo, smoothstep(0.12, 0.7, y)); gl_FragColor = vec4(c, 1.0); }',
+    }));
+    ceu.visible = false; this.ceu = ceu; this.cena.add(ceu);
+    // muro de divisa em volta do terreno (o render 3D oficial mostra o muro cinza), com o portão da portaria aberto
+    const muro = new THREE.MeshStandardMaterial({ color: 0xbdb8ae, roughness: 0.95 });
+    const M = (a, b) => [this.p14(...a), this.p14(...b)];
+    for (const [[x0, z0], [x1, z1]] of [M([3, 2], [1210, 4]), M([3, 2], [5, 905]), M([3, 905], [170, 907]), M([170, 905], [172, 1003]),
+      M([170, 1001], [1210, 1003]), M([1208, 2], [1210, 588]), M([1208, 712], [1210, 1003])]) caixa(x0, z0, x1, z1, 0, 2.2, muro);
+    // portaria: pérgola preta sobre a entrada, com o nome do residencial voltado para a rua (render oficial da guarita)
+    const preto = new THREE.MeshStandardMaterial({ color: 0x1d1e21, roughness: 0.45, metalness: 0.3 });
+    const [px0, pz0] = this.p14(1122, 600), [px1, pz1] = this.p14(1160, 708);
+    for (const [x, z] of [[px0, pz0], [px0, pz1], [px1, pz0], [px1, pz1]]) caixa(x - 0.12, z - 0.12, x + 0.12, z + 0.12, 0, 3.4, preto);
+    caixa(px0, pz0, px1, pz0 + 0.25, 3.2, 3.5, preto); caixa(px0, pz1 - 0.25, px1, pz1, 3.2, 3.5, preto);
+    const [vx] = this.p14(1139, 0), [, vz0] = this.p14(0, 580), [, vz1] = this.p14(0, 712);
+    caixa(vx - 0.2, vz0, vx + 0.2, vz1, 3.3, 3.75, preto);   // a viga comprida do desenho
+    for (let x = px0 + 0.6; x < px1; x += 0.6) caixa(x, pz0, x + 0.08, pz1, 3.5, 3.6, preto);
+    const placa = document.createElement('canvas'); placa.width = 2048; placa.height = 128; const g = placa.getContext('2d');
+    g.fillStyle = '#1d1e21'; g.fillRect(0, 0, 2048, 128); g.fillStyle = '#e9e4da'; g.font = '600 64px Outfit, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('RESIDENCIAL PRAIA DO MADEIRO   214', 1024, 68);
+    const tp = new THREE.CanvasTexture(placa); tp.colorSpace = THREE.SRGBColorSpace; tp.anisotropy = 8;
+    const nome = new THREE.Mesh(new THREE.PlaneGeometry(pz1 - pz0, (pz1 - pz0) / 16), new THREE.MeshBasicMaterial({ map: tp, toneMapped: false }));
+    nome.rotation.y = Math.PI / 2; nome.position.set(px1 + 0.13, 3.35, (pz0 + pz1) / 2); this.cena.add(nome);
+    // gradil preto em volta da piscina (render oficial da piscina): grade de barras em textura transparente
+    const gc = document.createElement('canvas'); gc.width = 64; gc.height = 64; const gg = gc.getContext('2d');
+    gg.fillStyle = '#16171a'; gg.fillRect(0, 0, 9, 64); gg.fillRect(0, 0, 64, 5); gg.fillRect(0, 59, 64, 5);
+    const tg = new THREE.CanvasTexture(gc); tg.wrapS = THREE.RepeatWrapping; tg.colorSpace = THREE.SRGBColorSpace;
+    const grade = (x0, z0, x1, z1) => {
+      const L = Math.hypot(x1 - x0, z1 - z0), t = tg.clone(); t.needsUpdate = true; t.repeat.set(L / 0.12, 1);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(L, 1.2), new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.5 }));
+      m.position.set((x0 + x1) / 2, 0.6, (z0 + z1) / 2); m.rotation.y = -Math.atan2(z1 - z0, x1 - x0); this.cena.add(m);
+    };
+    const [gx0, gz0] = this.p14(626, 702), [gx1, gz1] = this.p14(903, 872);
+    // entrada pelo canto da ducha (sudeste): o gradil para antes
+    const [ex] = this.p14(862, 0), [, ez] = this.p14(0, 848);
+    grade(gx0, gz0, gx1, gz0); grade(gx0, gz1, ex, gz1); grade(gx0, gz0, gx0, gz1); grade(gx1, gz0, gx1, ez);
+  }
+
+  // ---------- andar a pé (altura dos olhos), com tour pelo caminho de quem chega pela portaria ----------
+  bloqueado(x, z) {
+    const d = this.d, folga = 0.35;
+    const dentro = (x0, z0, x1, z1) => x > Math.min(x0, x1) - folga && x < Math.max(x0, x1) + folga && z > Math.min(z0, z1) - folga && z < Math.max(z0, z1) + folga;
+    const [lx0, lz0] = this.p14(8, 6), [lx1, lz1] = this.p14(1205, 998);
+    const portao = z > this.p14(0, 592)[1] && z < this.p14(0, 708)[1];
+    if (x < lx0 || z < lz0 || z > lz1 || (x > lx1 && !(portao && x < this.p14(1235, 0)[0]))) return true;
+    for (const [cx, cz] of Object.values(d.torres)) { const [a, b, c, e] = d.caixa; if (dentro(cx + a, cz + b, cx + c, cz + e)) return true; }
+    for (const [x0, z0, x1, z1] of d.terreas || []) if (dentro(x0, z0, x1, z1)) return true;
+    for (const [x0, z0, x1, z1] of d.piscinas || []) if (dentro(x0 + 0.3, z0 + 0.3, x1 - 0.3, z1 - 0.3)) return true;
+    for (const [tx, tz, r] of d.tanques || []) if (Math.hypot(x - tx, z - tz) < r + folga) return true;
+    return false;
+  }
+  iniciarPe() {
+    this.marcarLazer(true); this.escolherItem(null);
+    const [x, z] = this.p14(1196, 628);
+    this.pe = { x, z, yaw: -Math.PI / 2, pitch: 0.02, olho: 1.6, dir: { x: 0, y: 0 }, teclas: new Set(), tour: null };
+    this.controles.enabled = false; this.ceu.visible = true; this.pinos.visible = false;   // a pé: no lugar dos números, a legenda do item mais perto
+    this.cena.fog = new THREE.Fog(0xe7eef2, 120, 420);
+    this.camera.fov = this.camera.aspect < 0.8 ? 72 : 62; this.camera.near = 0.1; this.camera.updateProjectionMatrix();
+    if (!this.peLigado) this.ligarPe();
+  }
+  sairPe() {
+    if (!this.pe) return;
+    this.pe = null; this.controles.enabled = true; this.ceu.visible = false; this.pinos.visible = this.estado.lazer;
+    this.cena.fog = new THREE.Fog(0xcfe0ee, 260, 520);
+    this.camera.fov = 38; this.camera.near = 1; this.camera.updateProjectionMatrix();
+    this.voarPara(this.vistaLazer(), 0);
+  }
+  ligarPe() {
+    this.peLigado = true;
+    const el = this.canvas; let arr = null;
+    el.addEventListener('pointerdown', e => { if (!this.pe) return; arr = { x: e.clientX, y: e.clientY }; });
+    el.addEventListener('pointermove', e => {
+      if (!this.pe || !arr) return;
+      const k = this.camera.fov / el.clientHeight * Math.PI / 180;
+      this.pe.yaw += (e.clientX - arr.x) * k; this.pe.pitch = Math.max(-0.9, Math.min(0.9, this.pe.pitch + (e.clientY - arr.y) * k));
+      arr = { x: e.clientX, y: e.clientY }; if (this.pe.tour) this.pe.tour.olhando = performance.now();
+    });
+    addEventListener('pointerup', () => { arr = null; });
+    addEventListener('keydown', e => { if (this.pe && !e.metaKey && !e.ctrlKey) { const k = e.key.toLowerCase(); if ('wasd'.includes(k) || k.startsWith('arrow')) { this.pe.teclas.add(k); this.pe.tour = null; this.cb.onTourPe?.(false); e.preventDefault(); } } });
+    addEventListener('keyup', e => this.pe?.teclas.delete(e.key.toLowerCase()));
+  }
+  moverPe(dx, dy, parar = false) { if (!this.pe) return; this.pe.dir = { x: dx, y: dy }; if (dx || dy || parar) { this.pe.tour = null; this.cb.onTourPe?.(false); } }
+  // caminho do tour (px da prévia de 1400 da implantação): portaria -> rua interna entre as torres -> lazer -> piscina
+  tourPe() {
+    if (!this.pe) this.iniciarPe();
+    const P = [[1196, 628], [1150, 626], [1095, 624], [1000, 618], [800, 618], [560, 620], [548, 480], [548, 335], [760, 333], [960, 333],
+      [1040, 420], [1043, 600], [1100, 640], [1104, 700], [1150, 752], [1154, 880], [1110, 905], [980, 900], [905, 886], [878, 862], [810, 846], [790, 834], [788, 822]];
+    const pts = P.map(p => this.p14(...p)), seg = [];
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) { const L = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(L); total += L; }
+    this.pe.x = pts[0][0]; this.pe.z = pts[0][1];
+    this.pe.tour = { pts, seg, total, s: 0, olhando: 0 };
+    this.cb.onTourPe?.(true);
+  }
+  passoPe(dt) {
+    const p = this.pe;
+    if (p.tour) {
+      const t = p.tour; t.s = Math.min(t.total, t.s + 2.0 * dt);
+      let s = t.s, i = 0; while (i < t.seg.length - 1 && s > t.seg[i]) { s -= t.seg[i]; i++; }
+      const a = t.pts[i], b = t.pts[i + 1], f = Math.min(1, s / t.seg[i]);
+      p.x = a[0] + (b[0] - a[0]) * f; p.z = a[1] + (b[1] - a[1]) * f;
+      // olha para um ponto 6 m à frente no caminho (vira suave nas curvas), a não ser que a pessoa tenha arrastado agora há pouco
+      if (performance.now() - t.olhando > 2500) {
+        let s2 = t.s + 6, j = 0; while (j < t.seg.length - 1 && s2 > t.seg[j]) { s2 -= t.seg[j]; j++; }
+        const c = t.pts[j], e = t.pts[j + 1], g = Math.min(1, s2 / t.seg[j]);
+        const alvo = Math.atan2((c[0] + (e[0] - c[0]) * g) - p.x, -((c[1] + (e[1] - c[1]) * g) - p.z));
+        let dy = alvo - p.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+        p.yaw += dy * Math.min(1, dt * 2.2); p.pitch += (0.02 - p.pitch) * Math.min(1, dt * 2);
+      }
+      if (t.s >= t.total) { p.tour = null; this.cb.onTourPe?.(false); }
+    } else {
+      let f = -p.dir.y, l = p.dir.x;
+      const T = p.teclas;
+      if (T.has('w') || T.has('arrowup')) f += 1; if (T.has('s') || T.has('arrowdown')) f -= 1;
+      if (T.has('a')) l -= 1; if (T.has('d')) l += 1;
+      if (T.has('arrowleft')) p.yaw -= 1.8 * dt; if (T.has('arrowright')) p.yaw += 1.8 * dt;
+      const n = Math.hypot(f, l);
+      if (n > 0.01) {
+        f /= Math.max(1, n); l /= Math.max(1, n);
+        const v = 2.2 * dt, dx = (Math.sin(p.yaw) * f + Math.cos(p.yaw) * l) * v, dz = (-Math.cos(p.yaw) * f + Math.sin(p.yaw) * l) * v;
+        if (!this.bloqueado(p.x + dx, p.z + dz)) { p.x += dx; p.z += dz; }
+        else if (!this.bloqueado(p.x + dx, p.z)) p.x += dx;
+        else if (!this.bloqueado(p.x, p.z + dz)) p.z += dz;
+      }
+    }
+    this.camera.position.set(p.x, p.olho, p.z);
+    this.camera.rotation.set(p.pitch, -p.yaw, 0, 'YXZ');
+    // o item do lazer mais perto (até 14 m) vira legenda
+    let perto = null, dmin = 14;
+    for (const it of Object.values(this.lazer)) for (const [x, z] of it.p) { const dd = Math.hypot(x - p.x, z - p.z); if (dd < dmin && !it.so_escolhido) { dmin = dd; perto = it.n; } }
+    if (perto !== this.pertoAtual) { this.pertoAtual = perto; this.cb.onPerto?.(perto); }
   }
 
   andarGeometrias() {
@@ -399,6 +541,7 @@ export class Torres3D {
   }
   tocar(e) {
     const a = this.achar();
+    if (this.pe && !a?.lazer) return;
     if (!a) return;
     if (a.lazer) return this.cb.onLazer?.(a.lazer, e);
     if (a.unidade) return this.cb.onUnidade?.(a.unidade, e);
@@ -431,9 +574,11 @@ export class Torres3D {
       this.camera.position.lerpVectors(a.p0, a.pos, e); this.controles.target.lerpVectors(a.a0, a.alvo, e);
       if (t >= 1) { this.anim = null; a.res(); }
     }
-    this.controles.update();
+    if (this.pe) { const dt = Math.min(0.05, (agora - (this.antes ?? agora)) / 1000); this.passoPe(dt); }
+    else this.controles.update();
+    this.antes = agora;
     if (this.composer) this.composer.render(); else this.renderer.render(this.cena, this.camera);
-    if (this.pinos?.visible) { const r = this.renderer; r.autoClear = false; r.clearDepth(); r.render(this.cenaTopo, this.camera); r.autoClear = true; }
+    if (this.pinos?.visible && !this.pe) { const r = this.renderer; r.autoClear = false; r.clearDepth(); r.render(this.cenaTopo, this.camera); r.autoClear = true; }
     this.aoQuadro?.();
     requestAnimationFrame(this.loop);
   }

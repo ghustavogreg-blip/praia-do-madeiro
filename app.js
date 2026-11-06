@@ -1,4 +1,4 @@
-import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106084714';
+import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106145335';
 const nomeAndar = k => k ? `${k}º andar` : 'Térreo';
 
 const $ = s => document.querySelector(s);
@@ -274,7 +274,7 @@ async function montar3D() {
   const canvas = $('#torres3d');
   if (!canvas) return;
   try {
-    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106084714'), fetch('assets/torre3d.json').then(r => r.json())]);
+    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106145335'), fetch('assets/torre3d.json').then(r => r.json())]);
     t3d = new Torres3D(canvas, dados, {
       statusDa, numeroDe,
       onPasso: info => {
@@ -295,7 +295,9 @@ async function montar3D() {
         dica.innerHTML = `<strong>${nomeAndar(info.andar)}</strong><span>Torre ${info.torre} · <em>${resumoAndar(info.andar, info.torre)} de ${FINAIS}</em> disponíveis</span><span>Toque para abrir o andar</span>`; pos();
       },
       onAndar: (t, k) => { if (t !== estado.torre) escolherTorre(t, false); escolherAndar(k, true); },
-      onLazer: n => { pararTourLazer(); escolherItemLazer(n); },
+      onLazer: n => { pararTourLazer(); if (aPe) { const f = FOTOS_LAZER[n]; if (f) abrirFoto(f, 0); return; } escolherItemLazer(n); },
+      onPerto: n => mostrarPerto(n),
+      onTourPe: on => $('#peTour')?.classList.toggle('tocando', on),
       onUnidade: (u, ev) => { if (u.st !== 'vendido') abrirApto({ torre: estado.torre, andar: estado.andar, final: u.final, num: u.num, st: u.st }, false, ev); },
     });
     // nome das torres por cima do 3D (só na vista geral e de torre)
@@ -344,7 +346,10 @@ function painelLazer() {
     <span class="kicker">Área comum das 4 torres</span>
     <h3>Lazer do condomínio</h3>
     <p class="resumo">As quatro torres dividem o mesmo térreo: o lazer fica junto da portaria e é de todos os moradores. Os números são os da implantação oficial.</p>`);
-  const play = el('button', 'lz-tour', '<b></b><span><strong>Tour pelo lazer</strong><em>Da portaria à piscina, com as imagens oficiais</em></span>');
+  const pe = el('button', 'lz-tour lz-pe', '<b></b><span><strong>Passear a pé pelo condomínio</strong><em>Entra pela portaria e anda pelas ruas até o lazer</em></span>');
+  pe.addEventListener('click', () => entrarAPe(true));
+  caixa.appendChild(pe);
+  const play = el('button', 'lz-tour', '<b></b><span><strong>Tour pelo lazer (vista de cima)</strong><em>Da portaria à piscina, com as imagens oficiais</em></span>');
   play.addEventListener('click', () => tourLazer ? pararTourLazer() : comecarTourLazer());
   caixa.appendChild(play);
   for (const [titulo, filtro] of [['Lazer', n => n < 15], ['Apoio', n => n > 15]]) {
@@ -399,6 +404,58 @@ function pararTourLazer() {
   tourLazer = null; cartao.hidden = true;
   document.querySelector('.lz-tour')?.classList.remove('tocando');
 }
+// ---------- a pé: o 3D ocupa a tela, na altura dos olhos; joystick, tour e legenda do item mais perto ----------
+let aPe = false;
+const peUi = el('div', 'pe-ui', `
+  <button class="pe-sair" id="peSair" type="button">← Sair do passeio</button>
+  <button class="pe-tour" id="peTour" type="button"><i></i><span>Tour a pé</span></button>
+  <div class="pe-joy" id="peJoy" aria-hidden="true"><i></i></div>
+  <button class="pe-perto" id="pePerto" type="button" hidden></button>
+  <p class="pe-dica">Arraste para olhar · <span class="so-pc">W A S D ou setas para andar</span><span class="so-cel">use o círculo para andar</span></p>`);
+box.appendChild(peUi);
+function entrarAPe(comTour) {
+  if (!t3d) return;
+  pararTourLazer();
+  if (!estado.lazer) abrirLazer();
+  aPe = true; box.classList.add('a-pe'); document.body.style.overflow = 'hidden';
+  dica.hidden = true;
+  t3d.iniciarPe(); if (comTour) t3d.tourPe();
+  history.pushState({ aPe: true }, '', location.hash);
+}
+function sairAPe(doHistorico = false) {
+  if (!aPe) return;
+  aPe = false; box.classList.remove('a-pe'); document.body.style.overflow = '';
+  t3d.sairPe(); $('#pePerto').hidden = true;
+  if (!doHistorico && history.state?.aPe) history.back();
+}
+$('#peSair').addEventListener('click', () => sairAPe());
+$('#peTour').addEventListener('click', () => { if ($('#peTour').classList.contains('tocando')) t3d.moverPe(0, 0, true); else t3d.tourPe(); });
+addEventListener('popstate', ev => { if (aPe && !ev.state?.aPe) sairAPe(true); });
+addEventListener('keydown', ev => { if (ev.key === 'Escape' && aPe && foto.hidden) sairAPe(); });
+function mostrarPerto(n) {
+  const b = $('#pePerto');
+  if (!aPe || n == null) { b.hidden = true; return; }
+  const it = itemLazer(n), f = FOTOS_LAZER[n];
+  b.innerHTML = `${f ? `<img src="${IMG + f[0].img}" alt="">` : ''}<span><i class="${n > 15 ? 'apoio' : ''}">${n}</i>${it.nome}${f ? '<small>Toque para ver a imagem</small>' : ''}</span>`;
+  b.onclick = () => { if (f) abrirFoto(f, 0); };
+  b.classList.toggle('sem-foto', !f);
+  b.hidden = false;
+}
+// joystick (celular): mesmo jeito do passeio dentro do apê
+{
+  const joy = $('#peJoy'), bola = joy.querySelector('i'); let id = null;
+  const mover = e => {
+    const r = joy.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - r.left - R, dy = e.clientY - r.top - R; const d = Math.hypot(dx, dy);
+    if (d > R) { dx *= R / d; dy *= R / d; }
+    bola.style.transform = `translate(${dx}px, ${dy}px)`; t3d?.moverPe(dx / R, dy / R);
+  };
+  joy.addEventListener('pointerdown', e => { id = e.pointerId; joy.setPointerCapture(id); mover(e); e.stopPropagation(); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === id) mover(e); });
+  const solta = () => { id = null; bola.style.transform = ''; t3d?.moverPe(0, 0); };
+  joy.addEventListener('pointerup', solta); joy.addEventListener('pointercancel', solta);
+}
+
 // arrastar o 3D durante o tour para o tour (o vendedor assume)
 $('#torres3d')?.addEventListener('pointerdown', () => { if (tourLazer) pararTourLazer(); });
 document.querySelectorAll('a[href="#lazer"]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); abrirLazer(true); }));
@@ -433,7 +490,7 @@ function portal(elm, ev) {
 }
 
 // passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
-const VERSAO_APE = '?v=20261106084714';
+const VERSAO_APE = '?v=20261106145335';
 const preBaixados = new Set();
 function preBaixarApe(pl) {
   // cada apê (501, 503, 001) tem os seus arquivos: lê o apto.json dele para saber o 3D e a planta; no celular, os mapas leves
@@ -472,7 +529,7 @@ async function abrirApto(u, doHistorico = false, origem = null) {
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js?v=20261106084714');
+    const { Planta3D } = await import('./planta3d.js?v=20261106145335');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);
