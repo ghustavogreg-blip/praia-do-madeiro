@@ -1,4 +1,4 @@
-import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106155736';
+import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106160048';
 const nomeAndar = k => k ? `${k}º andar` : 'Térreo';
 
 const $ = s => document.querySelector(s);
@@ -274,7 +274,7 @@ async function montar3D() {
   const canvas = $('#torres3d');
   if (!canvas) return;
   try {
-    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106155736'), fetch('assets/torre3d.json').then(r => r.json())]);
+    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106160048'), fetch('assets/torre3d.json').then(r => r.json())]);
     t3d = new Torres3D(canvas, dados, {
       statusDa, numeroDe,
       onPasso: info => {
@@ -312,6 +312,7 @@ async function montar3D() {
     box.classList.add('em3d');
     itensLazer = dados.lazer || [];
     if (pedidoLazer) abrirLazer();
+    if (pedidoPe) { pedidoPe = false; entrarAPe(true); }
   } catch (e) { console.warn('3D das torres indisponível', e); }
 }
 
@@ -408,7 +409,15 @@ function pararTourLazer() {
   document.querySelector('.lz-tour')?.classList.remove('tocando');
 }
 // ---------- a pé: o 3D ocupa a tela, na altura dos olhos; joystick, tour e legenda do item mais perto ----------
-let aPe = false;
+let aPe = false, pedidoPe = false;
+// atalhos sempre à vista em cima do 3D (no celular o painel do lazer fica lá embaixo)
+const palcoAcoes = el('div', 'palco-acoes', `
+  <button type="button" class="pa-pe">Passear a pé</button>
+  <button type="button" class="pa-360">Condomínio em 360°</button>`);
+box.appendChild(palcoAcoes);
+palcoAcoes.querySelector('.pa-pe').addEventListener('click', () => entrarAPe(true));
+palcoAcoes.querySelector('.pa-360').addEventListener('click', () => abrirCond360('portaria'));
+$('#heroPasseio')?.addEventListener('click', () => entrarAPe(true));
 const peUi = el('div', 'pe-ui', `
   <button class="pe-sair" id="peSair" type="button">← Sair do passeio</button>
   <button class="pe-tour" id="peTour" type="button"><i></i><span>Tour a pé</span></button>
@@ -418,7 +427,7 @@ const peUi = el('div', 'pe-ui', `
   <p class="pe-dica">Arraste para olhar · <span class="so-pc">W A S D ou setas para andar</span><span class="so-cel">use o círculo para andar</span></p>`);
 box.appendChild(peUi);
 function entrarAPe(comTour) {
-  if (!t3d) return;
+  if (!t3d) { pedidoPe = true; return; }   // 3D ainda carregando: entra assim que ficar pronto
   pararTourLazer();
   if (!estado.lazer) abrirLazer();
   aPe = true; box.classList.add('a-pe'); document.body.style.overflow = 'hidden';
@@ -509,7 +518,7 @@ function portal(elm, ev) {
 }
 
 // passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
-const VERSAO_APE = '?v=20261106155736';
+const VERSAO_APE = '?v=20261106160048';
 const preBaixados = new Set();
 function preBaixarApe(pl) {
   // cada apê (501, 503, 001) tem os seus arquivos: lê o apto.json dele para saber o 3D e a planta; no celular, os mapas leves
@@ -548,7 +557,7 @@ async function abrirApto(u, doHistorico = false, origem = null) {
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js?v=20261106155736');
+    const { Planta3D } = await import('./planta3d.js?v=20261106160048');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);

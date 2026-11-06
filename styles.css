@@ -481,3 +481,15 @@ h3 { font-size: 26px; }
   color: #fff; border-radius: 999px; padding: 10px 16px; font: 600 14px var(--f-tit); cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .imersivo { z-index: 120; }
 .imersivo.cond .voltar .longo { display: none; }
+
+/* atalhos do passeio a pé e da 360° do condomínio, sempre à vista em cima do 3D */
+.btn-verde { background: #3f8f6a; color: #fff; }
+.btn-verde:hover { background: #4fa47c; }
+.palco-acoes { position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); bottom: 46px; display: flex; gap: 8px; }
+.palco-acoes button { border: 0; border-radius: 999px; padding: 11px 16px; font: 600 14px var(--f-tit); color: #fff; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .3); }
+.palco-acoes .pa-pe { background: #3f8f6a; }
+.palco-acoes .pa-360 { background: #2f6fb0; }
+.palco-acoes button:hover { filter: brightness(1.12); }
+.fachada-box.a-pe .palco-acoes, .fachada-box:not(.em3d) .palco-acoes { display: none; }
+@media (max-width: 560px) { .palco-acoes { bottom: 50px; } .palco-acoes button { padding: 10px 13px; font-size: 13px; } .hero-acoes .btn-verde { flex-basis: 100%; } }
