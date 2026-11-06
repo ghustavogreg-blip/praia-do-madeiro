@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Praia do Madeiro · Condomínio em 360°</title>
+  <meta name="theme-color" content="#261434">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="andar.css?v=20261106155736">
+  <link rel="stylesheet" href="360.css?v=20261106155736">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="cena"></canvas>
+  <div class="pontos" id="pontos"></div>
+
+  <header class="topo">
+    <div class="marca">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="2" y="2" width="34" height="22" rx="5" fill="#D575B1" transform="rotate(-3 19 13)"/>
+        <rect x="42" y="2" width="20" height="18" rx="5" fill="#6F4091"/>
+        <rect x="4" y="30" width="58" height="32" rx="6" fill="#D575B1" transform="rotate(-3 33 46)"/>
+      </svg>
+      <div><small>Residencial Praia do Madeiro</small><strong>2 quartos com suíte<span class="so-pc"> · 360°</span></strong></div>
+    </div>
+    <div class="acoes">
+      <div class="horario" role="group" aria-label="Horário">
+      <button data-h="dia" class="on">Dia</button>
+      <button data-h="tarde">Pôr do sol</button>
+      </div>
+    </div>
+  </header>
+
+  <p class="dica" id="dica">Arraste para olhar em volta · toque nos pontos para ir a outro lugar</p>
+
+  <nav class="trilho" id="trilho" aria-label="Cômodos"></nav>
+  <p class="nota nota360"><b>Matheus Sodré · Corretor · CRECI RN 9389.</b> Imagens ilustrativas<span class="so-pc">: ruas, vagas, piscina e lazer nos lugares da implantação oficial; acabamentos como nas perspectivas da MRV</span>.</p>
+
+  <div class="carregando" id="carregando">
+    <div><span class="kicker">Abrindo o 360°</span><b id="pct">0%</b><i><em id="barra"></em></i></div>
+  </div>
+
+  <script src="falha.js?v=20261106155736"></script>
+  <script type="module" src="360.js?v=20261106155736"></script>
+  <script type="module" src="contato.js?v=20261106155736"></script>
+</body>
+</html>

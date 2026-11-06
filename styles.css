@@ -475,3 +475,9 @@ h3 { font-size: 26px; }
 @media (pointer: fine) { .pe-dica { bottom: 24px; } }
 .lz-pe { margin-bottom: 8px; background: linear-gradient(120deg, #3f8f6a, #5cb98a); }
 .lz-pe b::after { border-left-color: #3f8f6a; }
+.lz-360 { margin-bottom: 8px; background: linear-gradient(120deg, #2f5f9a, #4f8fd0); }
+.lz-360 b::after { border-left-color: #2f5f9a; }
+.pe-360 { position: absolute; z-index: 5; right: 16px; bottom: calc(70px + env(safe-area-inset-bottom)); border: 1px solid rgba(255, 255, 255, .25); background: rgba(27, 14, 38, .72);
+  color: #fff; border-radius: 999px; padding: 10px 16px; font: 600 14px var(--f-tit); cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.imersivo { z-index: 120; }
+.imersivo.cond .voltar .longo { display: none; }

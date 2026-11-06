@@ -1,0 +1,93 @@
+{
+ "titulo": "Área comum",
+ "sem_render": "",
+ "sc": 0.13177,
+ "pw": 1400,
+ "ph": 1129.5,
+ "c360": [
+  {
+   "id": "portaria",
+   "nome": "Portaria",
+   "px": [
+    1186,
+    628
+   ],
+   "frente": [
+    1000,
+    618
+   ]
+  },
+  {
+   "id": "rua",
+   "nome": "Rua entre as torres",
+   "px": [
+    548,
+    470
+   ],
+   "frente": [
+    548,
+    300
+   ]
+  },
+  {
+   "id": "lazer",
+   "nome": "Entrada do lazer",
+   "px": [
+    1043,
+    640
+   ],
+   "frente": [
+    1000,
+    760
+   ]
+  },
+  {
+   "id": "playground",
+   "nome": "Playground e pet",
+   "px": [
+    1132,
+    846
+   ],
+   "frente": [
+    1124,
+    780
+   ]
+  },
+  {
+   "id": "piscina",
+   "nome": "Piscina",
+   "px": [
+    790,
+    836
+   ],
+   "frente": [
+    760,
+    750
+   ]
+  }
+ ],
+ "liga": {
+  "portaria": {
+   "lazer": null,
+   "rua": null
+  },
+  "rua": {
+   "portaria": null,
+   "lazer": null,
+   "piscina": null
+  },
+  "lazer": {
+   "portaria": null,
+   "playground": null,
+   "rua": null
+  },
+  "playground": {
+   "lazer": null,
+   "piscina": null
+  },
+  "piscina": {
+   "rua": null,
+   "playground": null
+  }
+ }
+}

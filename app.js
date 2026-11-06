@@ -1,4 +1,4 @@
-import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106145335';
+import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106155736';
 const nomeAndar = k => k ? `${k}º andar` : 'Térreo';
 
 const $ = s => document.querySelector(s);
@@ -274,7 +274,7 @@ async function montar3D() {
   const canvas = $('#torres3d');
   if (!canvas) return;
   try {
-    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106145335'), fetch('assets/torre3d.json').then(r => r.json())]);
+    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106155736'), fetch('assets/torre3d.json').then(r => r.json())]);
     t3d = new Torres3D(canvas, dados, {
       statusDa, numeroDe,
       onPasso: info => {
@@ -349,6 +349,9 @@ function painelLazer() {
   const pe = el('button', 'lz-tour lz-pe', '<b></b><span><strong>Passear a pé pelo condomínio</strong><em>Entra pela portaria e anda pelas ruas até o lazer</em></span>');
   pe.addEventListener('click', () => entrarAPe(true));
   caixa.appendChild(pe);
+  const v360 = el('button', 'lz-tour lz-360', '<b></b><span><strong>Ver em 360°</strong><em>Portaria, rua entre as torres, lazer, playground e piscina</em></span>');
+  v360.addEventListener('click', () => abrirCond360('portaria'));
+  caixa.appendChild(v360);
   const play = el('button', 'lz-tour', '<b></b><span><strong>Tour pelo lazer (vista de cima)</strong><em>Da portaria à piscina, com as imagens oficiais</em></span>');
   play.addEventListener('click', () => tourLazer ? pararTourLazer() : comecarTourLazer());
   caixa.appendChild(play);
@@ -409,6 +412,7 @@ let aPe = false;
 const peUi = el('div', 'pe-ui', `
   <button class="pe-sair" id="peSair" type="button">← Sair do passeio</button>
   <button class="pe-tour" id="peTour" type="button"><i></i><span>Tour a pé</span></button>
+  <button class="pe-360" id="pe360" type="button">360° daqui</button>
   <div class="pe-joy" id="peJoy" aria-hidden="true"><i></i></div>
   <button class="pe-perto" id="pePerto" type="button" hidden></button>
   <p class="pe-dica">Arraste para olhar · <span class="so-pc">W A S D ou setas para andar</span><span class="so-cel">use o círculo para andar</span></p>`);
@@ -429,8 +433,23 @@ function sairAPe(doHistorico = false) {
   if (!doHistorico && history.state?.aPe) history.back();
 }
 $('#peSair').addEventListener('click', () => sairAPe());
+// 360° renderizadas do condomínio (lazer360/): abre no ponto mais perto de onde a pessoa está andando
+const PONTOS_COND = { portaria: [1186, 628], rua: [548, 470], lazer: [1043, 640], playground: [1132, 846], piscina: [790, 836] };
+$('#pe360').addEventListener('click', () => {
+  const p = t3d.pe; if (!p) return;
+  let melhor = 'portaria', dmin = Infinity;
+  for (const [id, px] of Object.entries(PONTOS_COND)) { const [x, z] = t3d.p14(...px), d = Math.hypot(x - p.x, z - p.z); if (d < dmin) { dmin = d; melhor = id; } }
+  t3d.moverPe(0, 0, true); abrirCond360(melhor);
+});
+function abrirCond360(ponto) {
+  quadro.src = `lazer360/360.html${VERSAO_APE}#${ponto}`;
+  imersivo.hidden = false; portal(imersivo, null);
+  imersivo.classList.add('cond');   // "← Voltar" (não é a planta do apê)
+  t3d?.parar();   // o 360° precisa do aparelho inteiro
+  history.pushState({ imersivo: true, aPe }, '', location.hash);
+}
 $('#peTour').addEventListener('click', () => { if ($('#peTour').classList.contains('tocando')) t3d.moverPe(0, 0, true); else t3d.tourPe(); });
-addEventListener('popstate', ev => { if (aPe && !ev.state?.aPe) sairAPe(true); });
+addEventListener('popstate', ev => { if (aPe && !ev.state?.aPe && !ev.state?.imersivo) sairAPe(true); });
 addEventListener('keydown', ev => { if (ev.key === 'Escape' && aPe && foto.hidden) sairAPe(); });
 function mostrarPerto(n) {
   const b = $('#pePerto');
@@ -490,7 +509,7 @@ function portal(elm, ev) {
 }
 
 // passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
-const VERSAO_APE = '?v=20261106145335';
+const VERSAO_APE = '?v=20261106155736';
 const preBaixados = new Set();
 function preBaixarApe(pl) {
   // cada apê (501, 503, 001) tem os seus arquivos: lê o apto.json dele para saber o 3D e a planta; no celular, os mapas leves
@@ -529,7 +548,7 @@ async function abrirApto(u, doHistorico = false, origem = null) {
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js?v=20261106145335');
+    const { Planta3D } = await import('./planta3d.js?v=20261106155736');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);
@@ -752,7 +771,9 @@ function fecharImersivo(doHistorico = false) {
   if (imersivo.hidden) return;
   imersivo.hidden = true;
   quadro.src = 'about:blank';   // para o 3D e libera a memória (importante no celular)
-  planta3d?.continuar(); planta3d?.voar('iso'); marcarVista('iso');
+  imersivo.classList.remove('cond');
+  if (!apto.hidden) { planta3d?.continuar(); planta3d?.voar('iso'); marcarVista('iso'); }
+  else if (!box.classList.contains('foto')) t3d?.continuar();   // veio do 360° do condomínio
   if (!doHistorico && history.state?.imersivo) history.back();
 }
 $('#imersivoVoltar').addEventListener('click', () => fecharImersivo());
