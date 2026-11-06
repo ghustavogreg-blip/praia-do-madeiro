@@ -3,7 +3,8 @@
 // 17 andares-tipo + térreo; chão = a implantação oficial. Girar em volta, tocar na torre, no andar e no apê.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -67,18 +68,43 @@ export class Torres3D {
   }
 
   montarEntorno() {
-    // árvores nos lugares das copas desenhadas na implantação oficial; construções térreas do lazer e reservatórios
-    const d = this.d, folha = new THREE.MeshStandardMaterial({ color: 0x4f7a3a, roughness: 0.95, flatShading: true });
-    const tronco = new THREE.MeshStandardMaterial({ color: 0x6b5340, roughness: 1 });
-    for (const [x, z, r] of d.arvores || []) {
-      const h = 2.2 + r * 1.2;
-      const t = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, h * 0.55, 8), tronco); t.position.set(x, h * 0.275, z);
-      const g = new THREE.IcosahedronGeometry(r, 1), p = g.attributes.position;
-      for (let i = 0; i < p.count; i++) { const k = 0.82 + 0.3 * Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1); p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.85, p.getZ(i) * k); }
-      g.computeVertexNormals();
-      const c = new THREE.Mesh(g, folha); c.position.set(x, h * 0.55 + r * 0.6, z);
-      for (const o of [t, c]) { o.castShadow = true; o.receiveShadow = true; this.cena.add(o); }
+    // árvores nos lugares das copas desenhadas na implantação oficial: copa cheia de vários "tufos" arredondados,
+    // verde variado (mais escuro embaixo), tronco afinando com dois galhos
+    const d = this.d;
+    const folha = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+    const tronco = new THREE.MeshStandardMaterial({ color: 0x5e4a3a, roughness: 1 });
+    let semente = 11; const rnd = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
+    const copas = [], troncos = [];
+    for (const [x, z, r0] of d.arvores || []) {
+      const r = r0 * 1.05, h = 2.0 + r * 1.1, topo = h * 0.6;
+      const t = new THREE.CylinderGeometry(0.1, 0.2, topo + r * 0.4, 9); t.translate(x, (topo + r * 0.4) / 2, z); troncos.push(t);
+      for (let k = 0; k < 2; k++) {
+        const g = new THREE.CylinderGeometry(0.04, 0.08, r * 0.9, 6), a = rnd() * 6.28;
+        g.translate(0, r * 0.45, 0); g.rotateZ(0.8 * (k ? 1 : -1)); g.rotateY(a); g.translate(x, topo * 0.85, z); troncos.push(g);
+      }
+      const tufos = 6 + Math.floor(rnd() * 3), base = new THREE.Color().setHSL(0.26 + rnd() * 0.05, 0.45 + rnd() * 0.15, 0.24 + rnd() * 0.06);
+      for (let k = 0; k < tufos; k++) {
+        const a = rnd() * 6.28, dd = k ? r * (0.35 + rnd() * 0.35) : 0, rr = r * (k ? 0.48 + rnd() * 0.2 : 0.7);
+        let g = new THREE.IcosahedronGeometry(rr, 3); g.deleteAttribute('normal'); g.deleteAttribute('uv'); g = mergeVertices(g);
+        const p = g.attributes.position, cor = new Float32Array(p.count * 3), c = new THREE.Color();
+        for (let i = 0; i < p.count; i++) {
+          const vx = p.getX(i), vy = p.getY(i), vz = p.getZ(i);
+          const ruido = 1 + 0.12 * Math.sin(vx * 5.1 + vz * 3.7) * Math.sin(vy * 4.3 + vx * 2.9) + 0.06 * Math.sin(vz * 11 + vy * 9);
+          p.setXYZ(i, vx * ruido, vy * ruido * 0.82, vz * ruido);
+          const luz = 0.75 + 0.45 * (vy / rr + 1) / 2 + 0.08 * Math.sin(vx * 9 + vz * 7);   // mais claro em cima
+          c.copy(base).multiplyScalar(luz); cor.set([c.r, c.g, c.b], i * 3);
+        }
+        g.setAttribute('color', new THREE.BufferAttribute(cor, 3)); g.computeVertexNormals();
+        g.translate(x + Math.cos(a) * dd, topo + r * 0.55 + (k ? (rnd() - 0.3) * r * 0.5 : 0), z + Math.sin(a) * dd);
+        copas.push(g);
+      }
     }
+    if (copas.length) {
+      for (const [geo, mat] of [[mergeGeometries(copas), folha], [mergeGeometries(troncos), tronco]]) {
+        const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; this.cena.add(m);
+      }
+    }
+    this.montarCarros();
     const branco = new THREE.MeshStandardMaterial({ color: 0xe6e3dc, roughness: 0.9 }), laje = new THREE.MeshStandardMaterial({ color: 0x9d9a94, roughness: 0.95 });
     for (const [x0, z0, x1, z1, h] of d.terreas || []) {
       const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, z1 - z0), branco); b.position.set((x0 + x1) / 2, h / 2, (z0 + z1) / 2);
@@ -89,6 +115,31 @@ export class Torres3D {
     for (const [x, z, r, h] of d.tanques || []) {
       const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20), azul); c.position.set(x, h / 2, z); c.castShadow = true; this.cena.add(c);
     }
+  }
+
+  montarCarros() {
+    // carros em 3D onde a implantação desenha carros (chao_limpo.py tira o desenho do chão e guarda posição, direção e cor)
+    const lista = this.d.carros || []; if (!lista.length) return;
+    const N = lista.length, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), um = new THREE.Vector3(1, 1, 1), cor = new THREE.Color();
+    const peca = (geo, mat, n = N) => { const im = new THREE.InstancedMesh(geo, mat, n); im.castShadow = true; im.receiveShadow = true; this.cena.add(im); return im; };
+    const lataria = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.45, envMapIntensity: 1.2 });
+    const vidro = new THREE.MeshStandardMaterial({ color: 0x151a20, roughness: 0.1, metalness: 0.6 });
+    const pneu = new THREE.MeshStandardMaterial({ color: 0x18181a, roughness: 0.9 });
+    const corpo = peca(new RoundedBoxGeometry(1.8, 0.72, 4.3, 3, 0.2), lataria);
+    const cabine = peca(new RoundedBoxGeometry(1.6, 0.58, 2.3, 3, 0.22), vidro);
+    const teto = peca(new RoundedBoxGeometry(1.5, 0.08, 1.8, 2, 0.04), lataria);
+    const rodaG = new THREE.CylinderGeometry(0.33, 0.33, 0.24, 16); rodaG.rotateZ(Math.PI / 2);
+    const rodas = peca(rodaG, pneu, N * 4);
+    const pos = (x, y, z, giro) => { q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), giro); return m4.compose(new THREE.Vector3(x, y, z), q, um); };
+    const local = (cx, cz, giro, lx, lz) => [cx + lx * Math.cos(giro) + lz * Math.sin(giro), cz - lx * Math.sin(giro) + lz * Math.cos(giro)];
+    lista.forEach(([x, z, emPe, r, g, b], i) => {
+      const giro = (emPe ? 0 : Math.PI / 2) + (i % 3 === 0 ? Math.PI : 0);
+      const [cx2, cz2] = local(x, z, giro, 0, 0.25);   // cabine um pouco para trás, como num carro de passeio
+      corpo.setMatrixAt(i, pos(x, 0.68, z, giro)); cabine.setMatrixAt(i, pos(cx2, 1.06, cz2, giro)); teto.setMatrixAt(i, pos(cx2, 1.36, cz2, giro));
+      cor.setRGB(r, g, b, THREE.SRGBColorSpace); corpo.setColorAt(i, cor); teto.setColorAt(i, cor);
+      [[-0.86, -1.35], [0.86, -1.35], [-0.86, 1.35], [0.86, 1.35]].forEach(([lx, lz], k) => { const [wx, wz] = local(x, z, giro, lx, lz); rodas.setMatrixAt(i * 4 + k, pos(wx, 0.33, wz, giro)); });
+    });
+    for (const im of [corpo, cabine, teto, rodas]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
   }
 
   montarLazer() {
@@ -204,6 +255,7 @@ export class Torres3D {
     for (const [x0, z0, x1, z1] of d.terreas || []) if (dentro(x0, z0, x1, z1)) return true;
     for (const [x0, z0, x1, z1] of d.piscinas || []) if (dentro(x0 + 0.3, z0 + 0.3, x1 - 0.3, z1 - 0.3)) return true;
     for (const [tx, tz, r] of d.tanques || []) if (Math.hypot(x - tx, z - tz) < r + folga) return true;
+    for (const [cx, cz, emPe] of d.carros || []) if (Math.abs(x - cx) < (emPe ? 1.0 : 2.2) + folga && Math.abs(z - cz) < (emPe ? 2.2 : 1.0) + folga) return true;
     return false;
   }
   iniciarPe() {

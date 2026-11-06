@@ -1,4 +1,4 @@
-import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106182739';
+import { TORRES, ANDARES, FINAIS, PLANTAS, PLANTA_DO_FINAL, statusDa, LAZER, numeroDe, plantaDe, FOTOS_LAZER, TOUR_LAZER } from './data.js?v=20261106183628';
 const nomeAndar = k => k ? `${k}º andar` : 'Térreo';
 
 const $ = s => document.querySelector(s);
@@ -277,7 +277,7 @@ async function montar3D() {
   const canvas = $('#torres3d');
   if (!canvas) return;
   try {
-    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106182739'), fetch('assets/torre3d.json').then(r => r.json())]);
+    const [{ Torres3D }, dados] = await Promise.all([import('./torres3d.js?v=20261106183628'), fetch('assets/torre3d.json' + VERSAO_APE).then(r => r.json())]);
     t3d = new Torres3D(canvas, dados, {
       statusDa, numeroDe,
       onPasso: info => {
@@ -526,7 +526,7 @@ function portal(elm, ev) {
 }
 
 // passeio 3D: os arquivos começam a baixar enquanto a pessoa olha a planta (o montar_site.py põe a versão igual à do andar.js)
-const VERSAO_APE = '?v=20261106182739';
+const VERSAO_APE = '?v=20261106183628';
 const preBaixados = new Set();
 function preBaixarApe(pl) {
   // cada apê (501, 503, 001) tem os seus arquivos: lê o apto.json dele para saber o 3D e a planta; no celular, os mapas leves
@@ -565,7 +565,7 @@ async function abrirApto(u, doHistorico = false, origem = null) {
   if (!doHistorico) history.pushState({ apto: u }, '', `#apto-${u.num}-t${u.torre}`);
   $('#aptoLoad').style.opacity = '1';
   if (!planta3d) {
-    const { Planta3D } = await import('./planta3d.js?v=20261106182739');
+    const { Planta3D } = await import('./planta3d.js?v=20261106183628');
     planta3d = new Planta3D($('#apto3d'), { onComodo: c => entrarNoComodo(c) });
   }
   await planta3d.carregar(pl);
