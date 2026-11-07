@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Piscina em 360°</title>
+<style>
+  :root { --fundo: #0d0f12; --texto: #f4f2ee; --vidro: rgba(16, 18, 22, .62); --borda: rgba(255, 255, 255, .16); --destaque: #e9b872; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto); font: 15px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  .topo { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; pointer-events: none; }
+  .titulo { background: var(--vidro); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--borda); border-radius: 12px; padding: 8px 12px; pointer-events: auto; }
+  .titulo b { display: block; font-size: 15px; }
+  .titulo span { font-size: 12px; opacity: .75; }
+  .comparar { display: flex; background: var(--vidro); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--borda); border-radius: 999px; padding: 4px; pointer-events: auto; }
+  .comparar button { border: 0; background: transparent; color: var(--texto); font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+  .comparar button.on { background: var(--destaque); color: #1b1408; font-weight: 600; }
+  .dica { position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--vidro); border: 1px solid var(--borda); border-radius: 999px; padding: 8px 16px; font-size: 13px; transition: opacity .6s; pointer-events: none; white-space: nowrap; }
+  .dica.some { opacity: 0; }
+  .carregando { position: fixed; inset: 0; display: grid; place-items: center; font-size: 14px; opacity: .8; pointer-events: none; transition: opacity .4s; }
+  .carregando.some { opacity: 0; }
+  @media (max-width: 520px) { .titulo span { display: none; } .comparar button { padding: 7px 11px; font-size: 13px; } }
+</style>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="topo">
+  <div class="titulo"><b>Piscina · Praia do Madeiro</b><span>Teste de render realista · arraste para olhar</span></div>
+  <div class="comparar"><button data-v="depois" class="on">Novo</button><button data-v="antes">Atual</button></div>
+</div>
+<div class="carregando" id="carregando">Carregando…</div>
+<div class="dica" id="dica">Arraste para olhar em volta · pinça ou roda para aproximar</div>
+<script type="module">
+import * as THREE from 'three';
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const cena = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 100);
+const geo = new THREE.SphereGeometry(10, 96, 64); geo.scale(-1, 1, 1);
+const esfera = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+cena.add(esfera);
+// celular e tablet: imagem de 4096 px (limite de textura comum); computador: 6144 px
+const grande = renderer.capabilities.maxTextureSize >= 8192 && !matchMedia('(pointer: coarse)').matches;
+const ARQ = { depois: grande ? 'piscina_novo.webp' : 'piscina_novo_4k.webp', antes: 'piscina_atual.webp' };
+const cache = {}; const leitor = new THREE.TextureLoader();
+function textura(v) {
+  return cache[v] ??= new Promise(ok => leitor.load(ARQ[v] + '?v=1', t => {
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); t.generateMipmaps = true; ok(t);
+  }));
+}
+async function mostrar(v) {
+  const t = await textura(v); esfera.material.map = t; esfera.material.needsUpdate = true;
+  document.getElementById('carregando').classList.add('some');
+}
+document.querySelectorAll('.comparar button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.comparar button').forEach(x => x.classList.toggle('on', x === b)); mostrar(b.dataset.v);
+}));
+mostrar('depois').then(() => textura('antes'));
+
+// abre olhando para as torres (centro da imagem = norte)
+const estado = { yaw: Math.PI / 2, pitch: -0.08, fov: 75 };
+let arr = null; const toques = new Map(); let pinca = null;
+canvas.addEventListener('pointerdown', e => { toques.set(e.pointerId, e); canvas.setPointerCapture(e.pointerId); arr = { x: e.clientX, y: e.clientY }; document.getElementById('dica').classList.add('some'); });
+canvas.addEventListener('pointermove', e => {
+  if (!toques.has(e.pointerId)) return; toques.set(e.pointerId, e);
+  if (toques.size === 2) {
+    const [a, b] = [...toques.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (pinca) estado.fov = Math.max(30, Math.min(95, estado.fov * pinca / d)); pinca = d; return;
+  }
+  if (!arr) return;
+  const k = estado.fov / innerHeight * Math.PI / 180;
+  estado.yaw += (e.clientX - arr.x) * k;
+  estado.pitch = Math.max(-1.35, Math.min(1.35, estado.pitch + (e.clientY - arr.y) * k));
+  arr = { x: e.clientX, y: e.clientY };
+});
+const fim = e => { toques.delete(e.pointerId); if (toques.size < 2) pinca = null; if (!toques.size) arr = null; };
+canvas.addEventListener('pointerup', fim); canvas.addEventListener('pointercancel', fim);
+canvas.addEventListener('wheel', e => { e.preventDefault(); estado.fov = Math.max(30, Math.min(95, estado.fov + e.deltaY * 0.04)); }, { passive: false });
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+camera.rotation.order = 'YXZ';
+renderer.setAnimationLoop(() => {
+  camera.rotation.y = estado.yaw; camera.rotation.x = estado.pitch;
+  if (camera.fov !== estado.fov) { camera.fov = estado.fov; camera.updateProjectionMatrix(); }
+  renderer.render(cena, camera);
+});
+</script>
+</body>
+</html>
