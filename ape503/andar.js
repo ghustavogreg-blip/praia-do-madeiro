@@ -10,7 +10,7 @@ const A = 'assets/';
 const LEVE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 820 || (navigator.deviceMemory || 8) <= 4;
 const AM = LEVE ? A + 'm/' : A;
 // o montar_site.py troca por '?v=<data>': quem já visitou não fica com o 3D de uma versão e as texturas de outra
-const VERSAO = '?v=20261106183628';
+const VERSAO = '?v=20261108120404';
 const $ = s => document.querySelector(s);
 const cena = await fetch(A + 'cena.json' + VERSAO).then(r => r.json());
 // o que muda de um apê para outro (501 / 503): cômodos, espelhos, tour, links diretos, arquivos

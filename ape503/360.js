@@ -4,7 +4,7 @@ import * as THREE from 'three';
 const A = 'assets/360/';
 const $ = s => document.querySelector(s);
 // o que muda de um apê para outro (501 / 503) vem do assets/apto.json: escala da planta, cômodos e ligações
-const VERSAO = '?v=20261106183628';   // o montar_site.py troca por '?v=<data>' (evita imagem velha do cache depois de republicar)
+const VERSAO = '?v=20261108120404';   // o montar_site.py troca por '?v=<data>' (evita imagem velha do cache depois de republicar)
 const apto = await fetch('assets/apto.json' + VERSAO).then(r => r.json());
 const SC = apto.sc, PW = apto.pw, PH = apto.ph;
 // posição de cada vista em px da planta (= PONTOS_360 do apto_<n>.py); frente = para onde a vista abre pela miniatura

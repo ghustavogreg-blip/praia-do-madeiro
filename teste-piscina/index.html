@@ -52,7 +52,7 @@ const grande = renderer.capabilities.maxTextureSize >= 8192 && !matchMedia('(poi
 const ARQ = { depois: grande ? 'piscina_novo.webp' : 'piscina_novo_4k.webp', antes: 'piscina_atual.webp' };
 const cache = {}; const leitor = new THREE.TextureLoader();
 function textura(v) {
-  return cache[v] ??= new Promise(ok => leitor.load(ARQ[v] + '?v=1', t => {
+  return cache[v] ??= new Promise(ok => leitor.load(ARQ[v] + '?v=2', t => {
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); t.generateMipmaps = true; ok(t);
   }));
 }
